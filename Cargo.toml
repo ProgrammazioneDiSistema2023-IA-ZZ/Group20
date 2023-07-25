@@ -1,0 +1,9 @@
+[package]
+name = "onnx-runtime"
+version = "0.1.0"
+edition = "2021"
+authors = ["Attilio Oliva", "Aldo Pietromatera", "Andrea Leone"]
+license = "MIT"
+repository = "https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group20"
+
+[dependencies]
