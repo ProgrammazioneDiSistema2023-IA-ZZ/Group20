@@ -100,7 +100,7 @@ fn serialize_simple_model() {
     };
 
     //use a temporary file
-    let mut tmp_path: PathBuf = PathBuf::from(env::temp_dir());
+    let mut tmp_path: PathBuf = env::temp_dir();
     tmp_path.push("my_model.onnx");
 
     let mut buffer = Vec::new();
