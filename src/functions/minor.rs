@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array2, Array4};
+use ndarray::{Array0, Array1, Array2, Array4};
 use std::ops::Add;
 
 pub struct ClipAttributes {
@@ -39,32 +39,25 @@ impl GatherAttributes {
     }
 }
 
-pub fn gather(x: Array1<usize>, index: usize, attrs: GatherAttributes) -> Array1<usize> {
+pub fn gather(x: Array1<usize>, index: usize, attrs: GatherAttributes) -> Array0<usize> {
     assert!(attrs.axes == 0); // this is the only use case we are interested in
-    Array1::<usize>::from_vec(vec![x[[index]]])
+    Array0::<usize>::from_shape_fn([], |_| x[[index]])
+    //    Array0::<usize>::from_vec(vec![x[[index]]])
 }
 
 pub type UnsqueezeAttributes = GatherAttributes;
 
-pub fn unsqueeze(x: Array1<usize>, attrs: UnsqueezeAttributes) -> Array2<usize> {
+pub fn unsqueeze(x: Array0<usize>, attrs: UnsqueezeAttributes) -> Array1<usize> {
     assert!(attrs.axes == 0); // this is the only use case we are interested in
-    let v = x.to_vec();
-    Array2::<usize>::from_shape_vec([1, v.len()], v).expect("Unsqueeze failed")
+    Array1::<usize>::from_shape_vec([1], vec![x.into_scalar()]).expect("Unsqueeze failed")
 }
 
 pub type ConcatAttributes = GatherAttributes;
 
-pub fn concat(x: Vec<Array2<i64>>, attrs: ConcatAttributes) -> Array2<i64> {
+pub fn concat(x: Vec<Array1<i64>>, attrs: ConcatAttributes) -> Array1<i64> {
     assert!(!x.is_empty());
     assert!(attrs.axes == 0); // this is the only use case we are interested in
-                              //stack![Axis(attrs.axes), x[0], x[1]]
-    let mut y = Array2::from_shape_fn([x.len(), x[0].shape()[0]], |_| 0);
-    for i in 0..x.len() {
-        for j in 0..x[i].shape()[1] {
-            y[[i, j]] = x[i][[0, j]];
-        }
-    }
-    y
+    Array1::from_shape_fn([x.len()], |i| x[i][[0]])
 }
 
 pub fn global_average_pool(x: Array4<f32>) -> Array4<f32> {
@@ -76,6 +69,53 @@ pub fn global_average_pool(x: Array4<f32>) -> Array4<f32> {
                 accumulator += x[[bs, c, i, j]];
             }
         }
-        accumulator / (height*width) as f32
+        accumulator / (height * width) as f32
     })
 }
+
+pub fn reshape(x: Array4<f32>, shape: Array1<i64>) -> Array2<f32> {
+    let mut myshape: [usize; 2] = [0, 0];
+    let xshape = x.shape();
+    for i in 0..shape.len() {
+        if myshape[i] == 0 {
+            myshape[i] = xshape[i] as usize;
+        } else if shape[i] == -1 {
+            myshape[i] = xshape[i..].iter().product::<usize>();
+        } else {
+            myshape[i] = shape[i] as usize;
+        }
+    }
+    x.into_shape(myshape).unwrap()
+}
+
+pub struct GemmAttributes {
+    alpha: f32,
+    beta: f32,
+    trans_a: i64,
+    trans_b: i64,
+}
+
+impl GemmAttributes {
+    pub fn new(alpha: f32, beta: f32, trans_a: i64, trans_b: i64) -> Self {
+        Self {
+            alpha,
+            beta,
+            trans_a,
+            trans_b,
+        }
+    }
+}
+
+pub fn gemm(a: Array2<f32>, b: Array2<f32>, c: Array2<f32>, attrs: GemmAttributes) -> Array2<f32> {
+    let GemmAttributes {
+        alpha,
+        beta,
+        trans_a,
+        trans_b,
+    } = attrs;
+    let act_a = if trans_a == 0 { a } else { a.t().to_owned() };
+    let act_b = if trans_b == 0 { b } else { b.t().to_owned() };
+    let ab = alpha * act_a.dot(&act_b);
+    ab + beta * c
+}
+
