@@ -1,4 +1,4 @@
-use super::{ConvAttributes, ClipAttributes, GatherAttributes, UnsqueezeAttributes, ConcatAttributes, GemmAttributes};
+use super::{ConvAttributes, ClipAttributes, GatherAttributes, UnsqueezeAttributes, ConcatAttributes, GemmAttributes, BatchNormAttributes, MaxPoolAttributes};
 
 #[allow(dead_code)]
 enum Function {
@@ -12,6 +12,7 @@ enum Function {
     GlobalAveragePool,
     Reshape,
     Gemm(GemmAttributes),
-    BatchNorm,
+    MaxPool(MaxPoolAttributes),
+    BatchNorm(BatchNormAttributes),
     ReLU,
 }
