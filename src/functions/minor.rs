@@ -44,17 +44,17 @@ pub fn gather(x: Array1<usize>, index: usize, attrs: GatherAttributes) -> Array1
     Array1::<usize>::from_vec(vec![x[[index]]])
 }
 
-type UnsqueezeAttributes = GatherAttributes;
+pub type UnsqueezeAttributes = GatherAttributes;
 
 pub fn unsqueeze(x: Array1<usize>, attrs: UnsqueezeAttributes) -> Array2<usize> {
     assert!(attrs.axes == 0); // this is the only use case we are interested in
     let v = x.to_vec();
-    Array2::<usize>::from_shape_vec([0, v.len()], v).expect("Unsqueeze failed")
+    Array2::<usize>::from_shape_vec([1, v.len()], v).expect("Unsqueeze failed")
 }
 
-type ConcatAttributes = GatherAttributes;
+pub type ConcatAttributes = GatherAttributes;
 
-pub fn concat(x: Vec<Array2<usize>>, attrs: ConcatAttributes) -> Array2<usize> {
+pub fn concat(x: Vec<Array2<i64>>, attrs: ConcatAttributes) -> Array2<i64> {
     assert!(!x.is_empty());
     assert!(attrs.axes == 0); // this is the only use case we are interested in
                               //stack![Axis(attrs.axes), x[0], x[1]]
