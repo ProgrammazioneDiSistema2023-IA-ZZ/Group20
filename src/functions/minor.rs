@@ -119,3 +119,47 @@ pub fn gemm(a: Array2<f32>, b: Array2<f32>, c: Array2<f32>, attrs: GemmAttribute
     ab + beta * c
 }
 
+#[allow(dead_code)]
+pub struct BatchNormAttributes {
+    epsilon: f32,
+    momentum: f32, // not used during inference
+    spatial: i64,
+}
+
+impl BatchNormAttributes {
+    pub fn new(epsilon: f32, momentum: f32, spatial: i64) -> Self {
+        Self {
+            epsilon,
+            momentum,
+            spatial,
+        }
+    }
+}
+
+pub fn batch_norm(
+    x: Array4<f32>,
+    scale: Array1<f32>,
+    b: Array1<f32>,
+    mean: Array1<f32>,
+    var: Array1<f32>,
+    attrs: BatchNormAttributes,
+) -> Array4<f32> {
+    let BatchNormAttributes {
+        epsilon,
+        momentum: _,
+        spatial,
+    } = attrs;
+    assert!(spatial != 0); // this is the only use case we are interested in
+    let mean = Array4::from_shape_vec([1, x.shape()[1], 1, 1], mean.to_vec()).unwrap();
+    let b = Array4::from_shape_vec([1, x.shape()[1], 1, 1], b.to_vec()).unwrap();
+    let scale = Array4::from_shape_vec([1, x.shape()[1], 1, 1], scale.to_vec()).unwrap();
+    let var = Array4::from_shape_vec([1, x.shape()[1], 1, 1], var.to_vec()).unwrap();
+
+    let x_normalized = (x - mean) / (var + epsilon).mapv(|v| v.sqrt());
+    let y = scale * x_normalized + b;
+    y
+}
+
+pub fn relu(x: Array4<f32>) -> Array4<f32> {
+    x.mapv(|v| v.max(0.0))
+}
