@@ -1,7 +1,18 @@
-use super::{ConvAttributes, ClipAttributes, GatherAttributes, UnsqueezeAttributes, ConcatAttributes, GemmAttributes, BatchNormAttributes, MaxPoolAttributes};
+///
+/// # Operators
+///
+/// This module define the ONNX operators structures.
+///
+/// Currently it only defines the subset of operators used to execute the selected neural networks
+///
+mod convolution;
+mod minor;
+
+pub use convolution::*;
+pub use minor::*;
 
 #[allow(dead_code)]
-enum Function {
+pub enum Operators {
     Convolution(ConvAttributes),
     Clip(ClipAttributes),
     Add,

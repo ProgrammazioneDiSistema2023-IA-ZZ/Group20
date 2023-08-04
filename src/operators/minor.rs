@@ -78,7 +78,7 @@ pub fn reshape(x: Array4<f32>, shape: Array1<i64>) -> Array2<f32> {
     let xshape = x.shape();
     for i in 0..shape.len() {
         if myshape[i] == 0 {
-            myshape[i] = xshape[i] as usize;
+            myshape[i] = xshape[i];
         } else if shape[i] == -1 {
             myshape[i] = xshape[i..].iter().product::<usize>();
         } else {
@@ -156,8 +156,8 @@ pub fn batch_norm(
     let var = Array4::from_shape_vec([1, x.shape()[1], 1, 1], var.to_vec()).unwrap();
 
     let x_normalized = (x - mean) / (var + epsilon).mapv(|v| v.sqrt());
-    let y = scale * x_normalized + b;
-    y
+
+    scale * x_normalized + b
 }
 
 pub fn relu(x: Array4<f32>) -> Array4<f32> {
