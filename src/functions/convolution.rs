@@ -1,6 +1,6 @@
+use ndarray::Array1;
 use ndarray::Array4;
 
-#[warn(dead_code)]
 pub struct ConvAttributes {
     // assuming 4D tensors
     dilations: [usize; 2],
@@ -10,7 +10,12 @@ pub struct ConvAttributes {
     strides: [usize; 2],
 }
 
-pub fn convolution(x: Array4<f32>, w: Array4<f32>, attrs: ConvAttributes) -> Array4<f32> {
+pub fn convolution(
+    x: Array4<f32>,
+    w: Array4<f32>,
+    b: Option<Array1<f32>>,
+    attrs: ConvAttributes,
+) -> Array4<f32> {
     let [batch_size, in_chans, height, width] = *x.shape() else {todo!("conv2d: invalid input tensor shape")};
     let n_featmaps = w.shape()[0];
     let ConvAttributes {
@@ -32,8 +37,9 @@ pub fn convolution(x: Array4<f32>, w: Array4<f32>, attrs: ConvAttributes) -> Arr
 
     // result tensor
     let mut y: Array4<f32> = Array4::<f32>::from_elem(out_shape, 0.0);
+    let bias = b.unwrap_or(Array1::from_shape_fn([n_featmaps], |_| 0.0));
 
-    for b in 0..batch_size {
+    for bidx in 0..batch_size {
         for m in 0..n_featmaps {
             // get the group index of the feature map and compute input channel group bounds
             let g = m / output_group_size;
@@ -57,7 +63,7 @@ pub fn convolution(x: Array4<f32>, w: Array4<f32>, attrs: ConvAttributes) -> Arr
 
                     // ki and kj used to access the kernel
                     let mut ki = 0;
-                    let mut accumulator: f32 = 0.0;
+                    let mut accumulator: f32 = bias[[m]];
                     // iterate over the window defined by the kernel with the specified dilation
                     for i in (win_sh..win_eh).step_by(dh) {
                         if i >= 0 && i < height as i64 {
@@ -66,8 +72,8 @@ pub fn convolution(x: Array4<f32>, w: Array4<f32>, attrs: ConvAttributes) -> Arr
                                 if j >= 0 && j < width as i64 {
                                     // iterate also along all channels and increment accumulator
                                     for c in igs..ige {
-                                        accumulator +=
-                                            x[[b, c, i as usize, j as usize]] * w[[m, c % input_group_size, ki, kj]];
+                                        accumulator += x[[bidx, c, i as usize, j as usize]]
+                                            * w[[m, c % input_group_size, ki, kj]];
                                     }
                                 }
                                 kj += 1;
@@ -78,7 +84,7 @@ pub fn convolution(x: Array4<f32>, w: Array4<f32>, attrs: ConvAttributes) -> Arr
                     // compute output tensor indexes and update the corresponding value
                     let out_i = (ext_i + phs as i64) as usize / strh;
                     let out_j = (ext_j + pws as i64) as usize / strw;
-                    y[[b, m, out_i, out_j]] = accumulator;
+                    y[[bidx, m, out_i, out_j]] = accumulator;
                 }
             }
         }
@@ -100,6 +106,18 @@ impl ConvAttributes {
             kernel_shape,
             pads,
             strides,
+        }
+    }
+}
+
+impl Default for ConvAttributes {
+    fn default() -> Self {
+        ConvAttributes {
+            dilations: [1, 1],
+            group: 1,
+            kernel_shape: [3, 3],
+            pads: [0, 0, 0, 0],
+            strides: [1, 1],
         }
     }
 }
