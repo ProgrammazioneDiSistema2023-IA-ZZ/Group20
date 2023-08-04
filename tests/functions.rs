@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array4};
+use ndarray::{Array1, Array2, Array4};
 use npy::NpyData;
 use onnx_runtime::functions::*;
 use std::fs::File;
@@ -219,6 +219,54 @@ fn test_add() {
     let z = load4d("tests/tensors/add/z.npy", z_shape);
     let my_z = add(x, y);
     let err = z.sub(my_z).mapv(|x| x.abs()).mean().unwrap();
+    println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
+fn test_shape() {
+    let x_shape = [64, 32, 5, 5];
+    let x = Array4::<f32>::from_shape_fn(x_shape, |_| 0.0);
+    let my_x_shape = shape(x);
+    assert_eq!(my_x_shape.to_vec(), x_shape);
+}
+
+#[test]
+fn test_gather() {
+    let x = Array1::from_vec(vec![64, 32, 5, 5]);
+    let attrs = GatherAttributes::new(0);
+    let gathered = gather(x, 0, attrs);
+    let expected = Array1::from_vec(vec![64]);
+    assert_eq!(gathered, expected);
+}
+
+#[test]
+fn test_unqueeze() {
+    let x = Array1::from_vec(vec![64]);
+    let attrs = UnsqueezeAttributes::new(0);
+    let unsqueezed = unsqueeze(x, attrs);
+    let expected = Array2::<usize>::from_shape_fn([1, 1], |_| 64);
+    assert_eq!(unsqueezed, expected);
+}
+
+#[test]
+fn test_concat() {
+    let x1 = Array2::from_shape_fn([1, 1], |_| 64);
+    let x2 = Array2::from_shape_fn([1, 1], |_| -1);
+    let attrs = ConcatAttributes::new(0);
+    let concated = concat(vec![x1, x2], attrs);
+    let expected = Array2::<i64>::from_shape_vec([2, 1], vec![64, -1]).unwrap();
+    assert_eq!(concated, expected);
+}
+
+#[test]
+fn test_global_average_pool() {
+    let x_shape = [8, 4, 5, 5];
+    let y_shape = [8, 4, 1, 1];
+    let x = load4d("tests/tensors/glob_avg_pool/x.npy", x_shape);
+    let y = load4d("tests/tensors/glob_avg_pool/y.npy", y_shape);
+    let my_y = global_average_pool(x);
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
