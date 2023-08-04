@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array2, Array4};
+use ndarray::{Array1, Array4, arr0, Array2, arr2};
 use npy::NpyData;
 use onnx_runtime::functions::*;
 use std::fs::File;
@@ -17,8 +17,14 @@ fn load1d(path: &str, shape: [usize; 1]) -> Array1<f32> {
     let array_data: NpyData<'_, f32> = NpyData::from_bytes(&buf).expect("Failed from_bytes");
     Array1::<f32>::from_shape_vec(shape, array_data.to_vec()).unwrap()
 }
+fn load2d(path: &str, shape: [usize; 2]) -> Array2<f32> {
+    let mut buf = vec![];
+    File::open(path).unwrap().read_to_end(&mut buf).unwrap();
+    let array_data: NpyData<'_, f32> = NpyData::from_bytes(&buf).expect("Failed from_bytes");
+    Array2::<f32>::from_shape_vec(shape, array_data.to_vec()).unwrap()
+}
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_variables)]
 fn test_convolution() {
     let batch_size = 2; // Example batch size
     let input_channels = 4; // Example number of input channels
@@ -46,7 +52,7 @@ fn test_convolution() {
     );
 
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    println!("{:?}", convolution(x, w, None, attrs));
+    // println!("{:?}", convolution(x, w, None, attrs));
     assert!(true);
 }
 
@@ -61,7 +67,7 @@ fn test_convolution_basic() {
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
     let my_y = convolution(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -76,7 +82,7 @@ fn test_convolution_stride2() {
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [0, 0, 0, 0], [2, 2]);
     let my_y = convolution(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -91,7 +97,7 @@ fn test_convolution_pad1() {
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
     let my_y = convolution(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -106,7 +112,7 @@ fn test_convolution_dil2() {
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
     let my_y = convolution(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -121,7 +127,7 @@ fn test_convolution_dil2big() {
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
     let my_y = convolution(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -136,7 +142,7 @@ fn test_convolution_dil2big_stride2() {
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [2, 2]);
     let my_y = convolution(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -160,7 +166,7 @@ fn test_convolution_dil2big_stride2_pad2() {
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [2, 2, 2, 2], [2, 2]);
     let my_y = convolution(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -175,7 +181,7 @@ fn test_convolution_complete() {
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
     let my_y = convolution(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -192,7 +198,7 @@ fn test_convolution_complete_bias() {
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
     let my_y = convolution(x, w, Some(b), attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -205,7 +211,7 @@ fn test_clip() {
     let attrs = ClipAttributes::new(0.2, 0.8);
     let my_y = clip(x, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -219,7 +225,7 @@ fn test_add() {
     let z = load4d("tests/tensors/add/z.npy", z_shape);
     let my_z = add(x, y);
     let err = z.sub(my_z).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -236,26 +242,26 @@ fn test_gather() {
     let x = Array1::from_vec(vec![64, 32, 5, 5]);
     let attrs = GatherAttributes::new(0);
     let gathered = gather(x, 0, attrs);
-    let expected = Array1::from_vec(vec![64]);
+    let expected = arr0(64);
     assert_eq!(gathered, expected);
 }
 
 #[test]
 fn test_unqueeze() {
-    let x = Array1::from_vec(vec![64]);
+    let x = arr0(64);
     let attrs = UnsqueezeAttributes::new(0);
     let unsqueezed = unsqueeze(x, attrs);
-    let expected = Array2::<usize>::from_shape_fn([1, 1], |_| 64);
+    let expected = Array1::<usize>::from_vec(vec![64]);
     assert_eq!(unsqueezed, expected);
 }
 
 #[test]
 fn test_concat() {
-    let x1 = Array2::from_shape_fn([1, 1], |_| 64);
-    let x2 = Array2::from_shape_fn([1, 1], |_| -1);
+    let x1 = Array1::from_vec(vec![64]);
+    let x2 = Array1::from_vec(vec![-1]);
     let attrs = ConcatAttributes::new(0);
     let concated = concat(vec![x1, x2], attrs);
-    let expected = Array2::<i64>::from_shape_vec([2, 1], vec![64, -1]).unwrap();
+    let expected = Array1::<i64>::from_vec(vec![64, -1]);
     assert_eq!(concated, expected);
 }
 
@@ -267,6 +273,40 @@ fn test_global_average_pool() {
     let y = load4d("tests/tensors/glob_avg_pool/y.npy", y_shape);
     let my_y = global_average_pool(x);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    // println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
+
+#[test]
+fn test_reshape() {
+    let x_shape = [8, 4, 1, 1];
+    let y_shape = [8, 4];
+    let shape = Array1::from_vec(vec![8, -1]);
+    let x = load4d("tests/tensors/reshape/x.npy", x_shape);
+    let y = load2d("tests/tensors/reshape/y.npy", y_shape);
+    let my_y = reshape(x, shape);
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
+fn test_gemm() {
+    /*
+        A -> (2, 3)
+        B -> (3, 4)
+        C -> (4)
+        Y -> (2, 4)
+     */
+    let a: Array2<f32> = arr2(&[[2.0, 3.0, 4.0], [4.0, 5.0, 6.0]]);
+    let b: Array2<f32> = arr2(&[[0.1, 1.0, 10.0, 100.0], [0.2, 2.0, 20.0, 200.0], [0.3, 3.0, 30.0, 300.0]]);
+    let c: Array2<f32> = arr2(&[[0.5, -0.5, 0.5, -0.5]]);
+    let attrs = GemmAttributes::new(2.0, 0.1, 0, 0);
+    let y_shape = [2, 4];
+    let y = load2d("tests/tensors/gemm/y.npy", y_shape);
+    let my_y = gemm(a, b, c, attrs);
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
