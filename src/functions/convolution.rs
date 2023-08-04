@@ -121,3 +121,71 @@ impl Default for ConvAttributes {
         }
     }
 }
+
+pub struct MaxPoolAttributes {
+    kernel_shape: [usize; 2],
+    pads: [usize; 4],
+    strides: [usize; 2],
+}
+
+impl MaxPoolAttributes {
+    pub fn new(kernel_shape: [usize; 2], pads: [usize; 4], strides: [usize; 2]) -> Self {
+        Self {
+            kernel_shape,
+            pads,
+            strides,
+        }
+    }
+}
+
+pub fn max_pool(x: Array4<f32>, attrs: MaxPoolAttributes) -> Array4<f32> {
+    let MaxPoolAttributes {
+        kernel_shape: [kh, kw],
+        pads: [phs, pws, phe, pwe],
+        strides: [strh, strw],
+    } = attrs;
+    let [batch_size, in_chans, height, width] = *x.shape() else {todo!("Error in max_pool")};
+    let out_height = 1 + ((height + phs + phe) - kh) / strh;
+    let out_width = 1 + ((width + pws + pwe) - kw) / strw;
+    let out_shape = [batch_size, in_chans, out_height, out_width];
+    
+    // result tensor
+    let mut y: Array4<f32> = Array4::<f32>::from_elem(out_shape, 0.0);
+    for bidx in 0..batch_size {
+        for c in 0..in_chans {
+            // declaration of tensor bounds considering padding
+            let tens_sh: i64 = 0i64 - (phs as i64);
+            let tens_sw: i64 = 0i64 - (pws as i64);
+            let tens_eh: i64 = ((height + phe) - kh + 1) as i64; // subtracting kernel size to consider valid windows only
+            let tens_ew: i64 = ((width + pwe) - kw + 1) as i64;
+
+            // iterate over the input tensor with the specified stride
+            for ext_i in (tens_sh..tens_eh).step_by(strh) {
+                for ext_j in (tens_sw..tens_ew).step_by(strw) {
+                    // declaration of kernel window bounds
+                    let win_sh = ext_i;
+                    let win_sw = ext_j;
+                    let win_eh = ext_i + kh as i64; // actual kernel size takes into account the dilation
+                    let win_ew = ext_j + kw as i64;
+
+                    let mut res: f32 = f32::MIN;
+                    // iterate over the window defined by the kernel
+                    for i in win_sh..win_eh {
+                        if i >= 0 && i < height as i64 {
+                            for j in win_sw..win_ew {
+                                if j >= 0 && j < width as i64 {
+                                    res = res.max(x[[bidx, c, i as usize, j as usize]])
+                                }
+                            }
+                        }
+                    }
+                    // compute output tensor indexes and update the corresponding value
+                    let out_i = (ext_i + phs as i64) as usize / strh;
+                    let out_j = (ext_j + pws as i64) as usize / strw;
+                    y[[bidx, c, out_i, out_j]] = res;
+                }
+            }
+        }
+    }
+    y
+}
