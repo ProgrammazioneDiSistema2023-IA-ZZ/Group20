@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array4, arr0, Array2, arr2};
+use ndarray::{arr0, arr2, Array1, Array2, Array4};
 use npy::NpyData;
 use onnx_runtime::functions::*;
 use std::fs::File;
@@ -293,13 +293,17 @@ fn test_reshape() {
 #[test]
 fn test_gemm() {
     /*
-        A -> (2, 3)
-        B -> (3, 4)
-        C -> (4)
-        Y -> (2, 4)
-     */
+       A -> (2, 3)
+       B -> (3, 4)
+       C -> (4)
+       Y -> (2, 4)
+    */
     let a: Array2<f32> = arr2(&[[2.0, 3.0, 4.0], [4.0, 5.0, 6.0]]);
-    let b: Array2<f32> = arr2(&[[0.1, 1.0, 10.0, 100.0], [0.2, 2.0, 20.0, 200.0], [0.3, 3.0, 30.0, 300.0]]);
+    let b: Array2<f32> = arr2(&[
+        [0.1, 1.0, 10.0, 100.0],
+        [0.2, 2.0, 20.0, 200.0],
+        [0.3, 3.0, 30.0, 300.0],
+    ]);
     let c: Array2<f32> = arr2(&[[0.5, -0.5, 0.5, -0.5]]);
     let attrs = GemmAttributes::new(2.0, 0.1, 0, 0);
     let y_shape = [2, 4];
@@ -310,3 +314,74 @@ fn test_gemm() {
     assert!(err < 1e-5);
 }
 
+#[test]
+fn test_batchnorm_small() {
+    let shape_x = [2, 2, 3, 3];
+    let shape_mean = [2];
+    let shape_b = [2];
+    let shape_scale = [2];
+    let shape_var = [2];
+    let shape_y = [2, 2, 3, 3];
+
+    let x: Array4<f32> = load4d("tests/tensors/bn/small/x.npy", shape_x);
+    let mean: Array1<f32> = load1d("tests/tensors/bn/small/mean.npy", shape_mean);
+    let b: Array1<f32> = load1d("tests/tensors/bn/small/b.npy", shape_b);
+    let scale: Array1<f32> = load1d("tests/tensors/bn/small/scale.npy", shape_scale);
+    let var: Array1<f32> = load1d("tests/tensors/bn/small/var.npy", shape_var);
+    let y: Array4<f32> = load4d("tests/tensors/bn/small/y.npy", shape_y);
+    let attrs = BatchNormAttributes::new(1e-5, 0.9, 1);
+
+    let my_y = batch_norm(x, scale, b, mean, var, attrs);
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
+fn test_batchnorm_normal() {
+    let shape_x = [16, 8, 7, 7];
+    let shape_mean = [8];
+    let shape_b = [8];
+    let shape_scale = [8];
+    let shape_var = [8];
+    let shape_y = [16, 8, 7, 7];
+
+    let x: Array4<f32> = load4d("tests/tensors/bn/normal/x.npy", shape_x);
+    let mean: Array1<f32> = load1d("tests/tensors/bn/normal/mean.npy", shape_mean);
+    let b: Array1<f32> = load1d("tests/tensors/bn/normal/b.npy", shape_b);
+    let scale: Array1<f32> = load1d("tests/tensors/bn/normal/scale.npy", shape_scale);
+    let var: Array1<f32> = load1d("tests/tensors/bn/normal/var.npy", shape_var);
+    let y: Array4<f32> = load4d("tests/tensors/bn/normal/y.npy", shape_y);
+    let attrs = BatchNormAttributes::new(1e-5, 0.9, 1);
+
+    let my_y = batch_norm(x, scale, b, mean, var, attrs);
+
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
+fn test_relu() {
+    let shape_x = [4, 4, 5, 5];
+    let shape_y = [4, 4, 5, 5];
+    let x: Array4<f32> = load4d("tests/tensors/relu/x.npy", shape_x);
+    let y: Array4<f32> = load4d("tests/tensors/relu/y.npy", shape_y);
+    let my_y = relu(x);
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
+fn test_max_pool() {
+    let shape_x = [8, 4, 9, 9];
+    let shape_y = [8, 4, 5, 5];
+    let x: Array4<f32> = load4d("tests/tensors/maxpool/x.npy", shape_x);
+    let y: Array4<f32> = load4d("tests/tensors/maxpool/y.npy", shape_y);
+    let attrs = MaxPoolAttributes::new([3, 3], [1, 1, 1, 1], [2, 2]);
+    let my_y = max_pool(x, attrs);
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
