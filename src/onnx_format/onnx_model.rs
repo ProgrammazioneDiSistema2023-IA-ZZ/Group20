@@ -11,16 +11,16 @@ pub struct AttributeProto {
     /// The name field MUST be present for this version of the IR.
     ///
     /// namespace Attribute
-    #[prost(string, optional, tag = "1")]
+    #[prost(string, optional, tag="1")]
     pub name: ::core::option::Option<::prost::alloc::string::String>,
     /// if ref_attr_name is not empty, ref_attr_name is the attribute name in parent function.
     /// In this case, this AttributeProto does not contain data, and it's a reference of attribute
     /// in parent scope.
     /// NOTE: This should ONLY be used in function (sub-graph). It's invalid to be used in main graph.
-    #[prost(string, optional, tag = "21")]
+    #[prost(string, optional, tag="21")]
     pub ref_attr_name: ::core::option::Option<::prost::alloc::string::String>,
     /// A human-readable documentation for this attribute. Markdown is allowed.
-    #[prost(string, optional, tag = "13")]
+    #[prost(string, optional, tag="13")]
     pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
     /// The type field MUST be present for this version of the IR.
     /// For 0.0.1 versions of the IR, this field was not defined, and
@@ -30,54 +30,54 @@ pub struct AttributeProto {
     /// change was made to accommodate proto3 implementations.
     ///
     /// discriminator that indicates which field below is in use
-    #[prost(enumeration = "attribute_proto::AttributeType", optional, tag = "20")]
+    #[prost(enumeration="attribute_proto::AttributeType", optional, tag="20")]
     pub r#type: ::core::option::Option<i32>,
     /// Exactly ONE of the following fields must be present for this version of the IR
     ///
     /// float
-    #[prost(float, optional, tag = "2")]
+    #[prost(float, optional, tag="2")]
     pub f: ::core::option::Option<f32>,
     /// int
-    #[prost(int64, optional, tag = "3")]
+    #[prost(int64, optional, tag="3")]
     pub i: ::core::option::Option<i64>,
     /// UTF-8 string
-    #[prost(bytes = "vec", optional, tag = "4")]
+    #[prost(bytes="vec", optional, tag="4")]
     pub s: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
     /// tensor value
-    #[prost(message, optional, tag = "5")]
+    #[prost(message, optional, tag="5")]
     pub t: ::core::option::Option<TensorProto>,
     /// graph
-    #[prost(message, optional, tag = "6")]
+    #[prost(message, optional, tag="6")]
     pub g: ::core::option::Option<GraphProto>,
     /// sparse tensor value
-    #[prost(message, optional, tag = "22")]
+    #[prost(message, optional, tag="22")]
     pub sparse_tensor: ::core::option::Option<SparseTensorProto>,
     /// Do not use field below, it's deprecated.
     /// optional ValueProto v = 12;         // value - subsumes everything but graph
     ///
     /// type proto
-    #[prost(message, optional, tag = "14")]
+    #[prost(message, optional, tag="14")]
     pub tp: ::core::option::Option<TypeProto>,
     /// list of floats
-    #[prost(float, repeated, packed = "false", tag = "7")]
+    #[prost(float, repeated, packed="false", tag="7")]
     pub floats: ::prost::alloc::vec::Vec<f32>,
     /// list of ints
-    #[prost(int64, repeated, packed = "false", tag = "8")]
+    #[prost(int64, repeated, packed="false", tag="8")]
     pub ints: ::prost::alloc::vec::Vec<i64>,
     /// list of UTF-8 strings
-    #[prost(bytes = "vec", repeated, tag = "9")]
+    #[prost(bytes="vec", repeated, tag="9")]
     pub strings: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
     /// list of tensors
-    #[prost(message, repeated, tag = "10")]
+    #[prost(message, repeated, tag="10")]
     pub tensors: ::prost::alloc::vec::Vec<TensorProto>,
     /// list of graph
-    #[prost(message, repeated, tag = "11")]
+    #[prost(message, repeated, tag="11")]
     pub graphs: ::prost::alloc::vec::Vec<GraphProto>,
     /// list of sparse tensors
-    #[prost(message, repeated, tag = "23")]
+    #[prost(message, repeated, tag="23")]
     pub sparse_tensors: ::prost::alloc::vec::Vec<SparseTensorProto>,
     /// list of type protos
-    #[prost(message, repeated, tag = "15")]
+    #[prost(message, repeated, tag="15")]
     pub type_protos: ::prost::alloc::vec::Vec<TypeProto>,
 }
 /// Nested message and enum types in `AttributeProto`.
@@ -158,14 +158,14 @@ pub struct ValueInfoProto {
     /// This field MUST be present in this version of the IR.
     ///
     /// namespace Value
-    #[prost(string, optional, tag = "1")]
+    #[prost(string, optional, tag="1")]
     pub name: ::core::option::Option<::prost::alloc::string::String>,
     /// This field MUST be present in this version of the IR for
     /// inputs and outputs of the top-level graph.
-    #[prost(message, optional, tag = "2")]
+    #[prost(message, optional, tag="2")]
     pub r#type: ::core::option::Option<TypeProto>,
     /// A human-readable documentation for this value. Markdown is allowed.
-    #[prost(string, optional, tag = "3")]
+    #[prost(string, optional, tag="3")]
     pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Nodes
@@ -179,32 +179,32 @@ pub struct ValueInfoProto {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NodeProto {
     /// namespace Value
-    #[prost(string, repeated, tag = "1")]
+    #[prost(string, repeated, tag="1")]
     pub input: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// namespace Value
-    #[prost(string, repeated, tag = "2")]
+    #[prost(string, repeated, tag="2")]
     pub output: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// An optional identifier for this node in a graph.
     /// This field MAY be absent in ths version of the IR.
     ///
     /// namespace Node
-    #[prost(string, optional, tag = "3")]
+    #[prost(string, optional, tag="3")]
     pub name: ::core::option::Option<::prost::alloc::string::String>,
     /// The symbolic identifier of the Operator to execute.
     ///
     /// namespace Operator
-    #[prost(string, optional, tag = "4")]
+    #[prost(string, optional, tag="4")]
     pub op_type: ::core::option::Option<::prost::alloc::string::String>,
     /// The domain of the OperatorSet that specifies the operator named by op_type.
     ///
     /// namespace Domain
-    #[prost(string, optional, tag = "7")]
+    #[prost(string, optional, tag="7")]
     pub domain: ::core::option::Option<::prost::alloc::string::String>,
     /// Additional named attributes.
-    #[prost(message, repeated, tag = "5")]
+    #[prost(message, repeated, tag="5")]
     pub attribute: ::prost::alloc::vec::Vec<AttributeProto>,
     /// A human-readable documentation for this node. Markdown is allowed.
-    #[prost(string, optional, tag = "6")]
+    #[prost(string, optional, tag="6")]
     pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Training information
@@ -242,7 +242,7 @@ pub struct TrainingInfoProto {
     ///
     /// By default, this field is an empty graph and its evaluation does not
     /// produce any output. Thus, no initializer would be changed by default.
-    #[prost(message, optional, tag = "1")]
+    #[prost(message, optional, tag="1")]
     pub initialization: ::core::option::Option<GraphProto>,
     /// This field represents a training algorithm step. Given required inputs,
     /// it computes outputs to update initializers in its own or inference graph's
@@ -273,7 +273,7 @@ pub struct TrainingInfoProto {
     /// By default, this field is an empty graph and its evaluation does not
     /// produce any output. Evaluating the default training step never
     /// update any initializers.
-    #[prost(message, optional, tag = "2")]
+    #[prost(message, optional, tag="2")]
     pub algorithm: ::core::option::Option<GraphProto>,
     /// This field specifies the bindings from the outputs of "initialization" to
     /// some initializers in "ModelProto.graph.initializer" and
@@ -282,7 +282,7 @@ pub struct TrainingInfoProto {
     ///
     /// By default, this field is empty and no initializer would be changed
     /// by the execution of "initialization".
-    #[prost(message, repeated, tag = "3")]
+    #[prost(message, repeated, tag="3")]
     pub initialization_binding: ::prost::alloc::vec::Vec<StringStringEntryProto>,
     /// Gradient-based training is usually an iterative procedure. In one gradient
     /// descent iteration, we apply
@@ -324,7 +324,7 @@ pub struct TrainingInfoProto {
     ///
     /// By default, this field is empty and no initializer would be changed
     /// by the execution of "algorithm".
-    #[prost(message, repeated, tag = "4")]
+    #[prost(message, repeated, tag="4")]
     pub update_binding: ::prost::alloc::vec::Vec<StringStringEntryProto>,
 }
 /// Models
@@ -338,7 +338,7 @@ pub struct TrainingInfoProto {
 pub struct ModelProto {
     /// The version of the IR this model targets. See Version enum above.
     /// This field MUST be present.
-    #[prost(int64, optional, tag = "1")]
+    #[prost(int64, optional, tag="1")]
     pub ir_version: ::core::option::Option<i64>,
     /// The OperatorSets this model relies on.
     /// All ModelProtos MUST have at least one entry that
@@ -348,17 +348,17 @@ pub struct ModelProto {
     /// All nodes in the ModelProto's graph will bind against the operator
     /// with the same-domain/same-op_type operator with the HIGHEST version
     /// in the referenced operator sets.
-    #[prost(message, repeated, tag = "8")]
+    #[prost(message, repeated, tag="8")]
     pub opset_import: ::prost::alloc::vec::Vec<OperatorSetIdProto>,
     /// The name of the framework or tool used to generate this model.
     /// This field SHOULD be present to indicate which implementation/tool/framework
     /// emitted the model.
-    #[prost(string, optional, tag = "2")]
+    #[prost(string, optional, tag="2")]
     pub producer_name: ::core::option::Option<::prost::alloc::string::String>,
     /// The version of the framework or tool used to generate this model.
     /// This field SHOULD be present to indicate which implementation/tool/framework
     /// emitted the model.
-    #[prost(string, optional, tag = "3")]
+    #[prost(string, optional, tag="3")]
     pub producer_version: ::core::option::Option<::prost::alloc::string::String>,
     /// Domain name of the model.
     /// We use reverse domain names as name space indicators. For example:
@@ -366,19 +366,19 @@ pub struct ModelProto {
     ///
     /// Together with `model_version` and GraphProto.name, this forms the unique identity of
     /// the graph.
-    #[prost(string, optional, tag = "4")]
+    #[prost(string, optional, tag="4")]
     pub domain: ::core::option::Option<::prost::alloc::string::String>,
     /// The version of the graph encoded. See Version enum below.
-    #[prost(int64, optional, tag = "5")]
+    #[prost(int64, optional, tag="5")]
     pub model_version: ::core::option::Option<i64>,
     /// A human-readable documentation for this model. Markdown is allowed.
-    #[prost(string, optional, tag = "6")]
+    #[prost(string, optional, tag="6")]
     pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
     /// The parameterized graph that is evaluated to execute the model.
-    #[prost(message, optional, tag = "7")]
+    #[prost(message, optional, tag="7")]
     pub graph: ::core::option::Option<GraphProto>,
     /// Named metadata values; keys should be distinct.
-    #[prost(message, repeated, tag = "14")]
+    #[prost(message, repeated, tag="14")]
     pub metadata_props: ::prost::alloc::vec::Vec<StringStringEntryProto>,
     /// Training-specific information. Sequentially executing all stored
     /// `TrainingInfoProto.algorithm`s and assigning their outputs following
@@ -389,7 +389,7 @@ pub struct ModelProto {
     /// using `TrainingInfoProto.initialization_binding`s.
     ///
     /// If this field is empty, the training behavior of the model is undefined.
-    #[prost(message, repeated, tag = "20")]
+    #[prost(message, repeated, tag="20")]
     pub training_info: ::prost::alloc::vec::Vec<TrainingInfoProto>,
     /// A list of function protos local to the model.
     ///
@@ -407,7 +407,7 @@ pub struct ModelProto {
     ///
     /// One FunctionProto can reference other FunctionProto in the model, however, recursive reference
     /// is not allowed.
-    #[prost(message, repeated, tag = "25")]
+    #[prost(message, repeated, tag="25")]
     pub functions: ::prost::alloc::vec::Vec<FunctionProto>,
 }
 /// StringStringEntryProto follows the pattern for cross-proto-version maps.
@@ -415,21 +415,21 @@ pub struct ModelProto {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StringStringEntryProto {
-    #[prost(string, optional, tag = "1")]
+    #[prost(string, optional, tag="1")]
     pub key: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, optional, tag = "2")]
+    #[prost(string, optional, tag="2")]
     pub value: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TensorAnnotation {
-    #[prost(string, optional, tag = "1")]
+    #[prost(string, optional, tag="1")]
     pub tensor_name: ::core::option::Option<::prost::alloc::string::String>,
     /// <key, value> pairs to annotate tensor specified by <tensor_name> above.
     /// The keys used in the mapping below must be pre-defined in ONNX spec.
     /// For example, for 8-bit linear quantization case, 'SCALE_TENSOR', 'ZERO_POINT_TENSOR' will be pre-defined as
     /// quantization parameter keys.
-    #[prost(message, repeated, tag = "2")]
+    #[prost(message, repeated, tag="2")]
     pub quant_parameter_tensor_names: ::prost::alloc::vec::Vec<StringStringEntryProto>,
 }
 /// Graphs
@@ -442,39 +442,39 @@ pub struct TensorAnnotation {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GraphProto {
     /// The nodes in the graph, sorted topologically.
-    #[prost(message, repeated, tag = "1")]
+    #[prost(message, repeated, tag="1")]
     pub node: ::prost::alloc::vec::Vec<NodeProto>,
     /// The name of the graph.
     ///
     /// namespace Graph
-    #[prost(string, optional, tag = "2")]
+    #[prost(string, optional, tag="2")]
     pub name: ::core::option::Option<::prost::alloc::string::String>,
     /// A list of named tensor values, used to specify constant inputs of the graph.
     /// Each initializer (both TensorProto as well SparseTensorProto) MUST have a name.
     /// The name MUST be unique across both initializer and sparse_initializer,
     /// but the name MAY also appear in the input list.
-    #[prost(message, repeated, tag = "5")]
+    #[prost(message, repeated, tag="5")]
     pub initializer: ::prost::alloc::vec::Vec<TensorProto>,
     /// Initializers (see above) stored in sparse format.
-    #[prost(message, repeated, tag = "15")]
+    #[prost(message, repeated, tag="15")]
     pub sparse_initializer: ::prost::alloc::vec::Vec<SparseTensorProto>,
     /// A human-readable documentation for this graph. Markdown is allowed.
-    #[prost(string, optional, tag = "10")]
+    #[prost(string, optional, tag="10")]
     pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
     /// The inputs and outputs of the graph.
-    #[prost(message, repeated, tag = "11")]
+    #[prost(message, repeated, tag="11")]
     pub input: ::prost::alloc::vec::Vec<ValueInfoProto>,
-    #[prost(message, repeated, tag = "12")]
+    #[prost(message, repeated, tag="12")]
     pub output: ::prost::alloc::vec::Vec<ValueInfoProto>,
     /// Information for the values in the graph. The ValueInfoProto.name's
     /// must be distinct. It is optional for a value to appear in value_info list.
-    #[prost(message, repeated, tag = "13")]
+    #[prost(message, repeated, tag="13")]
     pub value_info: ::prost::alloc::vec::Vec<ValueInfoProto>,
     /// This field carries information to indicate the mapping among a tensor and its
     /// quantization parameter tensors. For example:
     /// For tensor 'a', it may have {'SCALE_TENSOR', 'a_scale'} and {'ZERO_POINT_TENSOR', 'a_zero_point'} annotated,
     /// which means, tensor 'a_scale' and tensor 'a_zero_point' are scale and zero point of tensor 'a' in the model.
-    #[prost(message, repeated, tag = "14")]
+    #[prost(message, repeated, tag="14")]
     pub quantization_annotation: ::prost::alloc::vec::Vec<TensorAnnotation>,
 }
 /// Tensors
@@ -484,18 +484,19 @@ pub struct GraphProto {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TensorProto {
     /// The shape of the tensor.
-    #[prost(int64, repeated, packed = "false", tag = "1")]
+    #[prost(int64, repeated, packed="false", tag="1")]
     pub dims: ::prost::alloc::vec::Vec<i64>,
     /// The data type of the tensor.
     /// This field MUST have a valid TensorProto.DataType value
-    #[prost(int32, optional, tag = "2")]
+    #[prost(int32, optional, tag="2")]
     pub data_type: ::core::option::Option<i32>,
-    #[prost(message, optional, tag = "3")]
+    #[prost(message, optional, tag="3")]
     pub segment: ::core::option::Option<tensor_proto::Segment>,
     // Tensor content must be organized in row-major order.
     //
     // Depending on the data_type field, exactly one of the fields below with
     // name ending in _data is used to store the elements of the tensor.
+
     /// For float and complex64 values
     /// Complex64 tensors are encoded as a single array of floats,
     /// with the real components appearing in odd numbered positions,
@@ -503,33 +504,33 @@ pub struct TensorProto {
     /// subsequent even numbered position. (e.g., [1.0 + 2.0i, 3.0 + 4.0i]
     /// is encoded as [1.0, 2.0 ,3.0 ,4.0]
     /// When this field is present, the data_type field MUST be FLOAT or COMPLEX64.
-    #[prost(float, repeated, tag = "4")]
+    #[prost(float, repeated, tag="4")]
     pub float_data: ::prost::alloc::vec::Vec<f32>,
     /// For int32, uint8, int8, uint16, int16, bool, float8, and float16 values
     /// float16 and float8 values must be bit-wise converted to an uint16_t prior
     /// to writing to the buffer.
     /// When this field is present, the data_type field MUST be
     /// INT32, INT16, INT8, UINT16, UINT8, BOOL, FLOAT16, BFLOAT16, FLOAT8E4M3FN, FLOAT8E4M3FNUZ, FLOAT8E5M2, FLOAT8E5M2FNUZ
-    #[prost(int32, repeated, tag = "5")]
+    #[prost(int32, repeated, tag="5")]
     pub int32_data: ::prost::alloc::vec::Vec<i32>,
     /// For strings.
     /// Each element of string_data is a UTF-8 encoded Unicode
     /// string. No trailing null, no leading BOM. The protobuf "string"
     /// scalar type is not used to match ML community conventions.
     /// When this field is present, the data_type field MUST be STRING
-    #[prost(bytes = "vec", repeated, tag = "6")]
+    #[prost(bytes="vec", repeated, tag="6")]
     pub string_data: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
     /// For int64.
     /// When this field is present, the data_type field MUST be INT64
-    #[prost(int64, repeated, tag = "7")]
+    #[prost(int64, repeated, tag="7")]
     pub int64_data: ::prost::alloc::vec::Vec<i64>,
     /// Optionally, a name for the tensor.
     ///
     /// namespace Value
-    #[prost(string, optional, tag = "8")]
+    #[prost(string, optional, tag="8")]
     pub name: ::core::option::Option<::prost::alloc::string::String>,
     /// A human-readable documentation for this tensor. Markdown is allowed.
-    #[prost(string, optional, tag = "12")]
+    #[prost(string, optional, tag="12")]
     pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
     /// Serializations can either use one of the fields above, or use this
     /// raw bytes field. The only exception is the string case, where one is
@@ -546,7 +547,7 @@ pub struct TensorProto {
     /// that in some cases (e.g. int data), protobuf does a better packing via
     /// variable length storage, and may lead to smaller binary footprint.
     /// When this field is present, the data_type field MUST NOT be STRING or UNDEFINED
-    #[prost(bytes = "vec", optional, tag = "9")]
+    #[prost(bytes="vec", optional, tag="9")]
     pub raw_data: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
     /// Data can be stored inside the protobuf file using type-specific fields or raw_data.
     /// Alternatively, raw bytes data can be stored in an external file, using the external_data field.
@@ -557,10 +558,10 @@ pub struct TensorProto {
     ///                          Offset values SHOULD be multiples 4096 (page size) to enable mmap support.
     /// - "length" (optional) - number of bytes containing data. Integer stored as string.
     /// - "checksum" (optional) - SHA1 digest of file specified in under 'location' key.
-    #[prost(message, repeated, tag = "13")]
+    #[prost(message, repeated, tag="13")]
     pub external_data: ::prost::alloc::vec::Vec<StringStringEntryProto>,
     /// If value not set, data is stored in raw_data (if set) otherwise in type-specified field.
-    #[prost(enumeration = "tensor_proto::DataLocation", optional, tag = "14")]
+    #[prost(enumeration="tensor_proto::DataLocation", optional, tag="14")]
     pub data_location: ::core::option::Option<i32>,
     /// For double
     /// Complex128 tensors are encoded as a single array of doubles,
@@ -569,12 +570,12 @@ pub struct TensorProto {
     /// subsequent even numbered position. (e.g., [1.0 + 2.0i, 3.0 + 4.0i]
     /// is encoded as [1.0, 2.0 ,3.0 ,4.0]
     /// When this field is present, the data_type field MUST be DOUBLE or COMPLEX128
-    #[prost(double, repeated, tag = "10")]
+    #[prost(double, repeated, tag="10")]
     pub double_data: ::prost::alloc::vec::Vec<f64>,
     /// For uint64 and uint32 values
     /// When this field is present, the data_type field MUST be
     /// UINT32 or UINT64
-    #[prost(uint64, repeated, tag = "11")]
+    #[prost(uint64, repeated, tag="11")]
     pub uint64_data: ::prost::alloc::vec::Vec<u64>,
 }
 /// Nested message and enum types in `TensorProto`.
@@ -583,11 +584,11 @@ pub mod tensor_proto {
     /// case the following fields will specify the segment that is stored in
     /// the current TensorProto.
     #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Segment {
-        #[prost(int64, optional, tag = "1")]
+        #[prost(int64, optional, tag="1")]
         pub begin: ::core::option::Option<i64>,
-        #[prost(int64, optional, tag = "2")]
+        #[prost(int64, optional, tag="2")]
         pub end: ::core::option::Option<i64>,
     }
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -635,9 +636,9 @@ pub mod tensor_proto {
         /// The computation usually happens inside a block quantize / dequantize
         /// fused by the runtime.
         ///
-        /// float 8, mostly used for coefficients, supports nan, not inf
+        /// float 8, mostly used for coefficients, supports nan, not inf 
         Float8e4m3fn = 17,
-        /// float 8, mostly used for coefficients, supports nan, not inf, no negative zero
+        /// float 8, mostly used for coefficients, supports nan, not inf, no negative zero 
         Float8e4m3fnuz = 18,
         /// follows IEEE 754, supports nan, inf, mostly used for gradients
         Float8e5m2 = 19,
@@ -740,7 +741,7 @@ pub struct SparseTensorProto {
     /// The default-value is zero for numeric tensors, and empty-string for string tensors.
     /// values must have a non-empty name present which serves as a name for SparseTensorProto
     /// when used in sparse_initializer list.
-    #[prost(message, optional, tag = "1")]
+    #[prost(message, optional, tag="1")]
     pub values: ::core::option::Option<TensorProto>,
     /// The indices of the non-default values, which may be stored in one of two formats.
     /// (a) Indices can be a tensor of shape [NNZ, rank] with the \[i,j\]-th value
@@ -752,10 +753,10 @@ pub struct SparseTensorProto {
     /// The indices must appear in ascending order without duplication.
     /// In the first format, the ordering is lexicographic-ordering:
     /// e.g., index-value \[1,4\] must appear before \[2,1\]
-    #[prost(message, optional, tag = "2")]
+    #[prost(message, optional, tag="2")]
     pub indices: ::core::option::Option<TensorProto>,
     /// The shape of the underlying dense-tensor: [dim_1, dim_2, ... dim_rank]
-    #[prost(int64, repeated, packed = "false", tag = "3")]
+    #[prost(int64, repeated, packed="false", tag="3")]
     pub dims: ::prost::alloc::vec::Vec<i64>,
 }
 /// Defines a tensor shape. A dimension can be either an integer value
@@ -764,33 +765,33 @@ pub struct SparseTensorProto {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TensorShapeProto {
-    #[prost(message, repeated, tag = "1")]
+    #[prost(message, repeated, tag="1")]
     pub dim: ::prost::alloc::vec::Vec<tensor_shape_proto::Dimension>,
 }
 /// Nested message and enum types in `TensorShapeProto`.
 pub mod tensor_shape_proto {
     #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Dimension {
         /// Standard denotation can optionally be used to denote tensor
         /// dimensions with standard semantic descriptions to ensure
         /// that operations are applied to the correct axis of a tensor.
         /// Refer to <https://github.com/onnx/onnx/blob/main/docs/DimensionDenotation.md#denotation-definition>
         /// for pre-defined dimension denotations.
-        #[prost(string, optional, tag = "3")]
+        #[prost(string, optional, tag="3")]
         pub denotation: ::core::option::Option<::prost::alloc::string::String>,
-        #[prost(oneof = "dimension::Value", tags = "1, 2")]
+        #[prost(oneof="dimension::Value", tags="1, 2")]
         pub value: ::core::option::Option<dimension::Value>,
     }
     /// Nested message and enum types in `Dimension`.
     pub mod dimension {
         #[allow(clippy::derive_partial_eq_without_eq)]
-        #[derive(Clone, PartialEq, ::prost::Oneof)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
         pub enum Value {
-            #[prost(int64, tag = "1")]
+            #[prost(int64, tag="1")]
             DimValue(i64),
             /// namespace Shape
-            #[prost(string, tag = "2")]
+            #[prost(string, tag="2")]
             DimParam(::prost::alloc::string::String),
         }
     }
@@ -805,110 +806,113 @@ pub struct TypeProto {
     /// type with a standard semantic description as to what is
     /// stored inside. Refer to <https://github.com/onnx/onnx/blob/main/docs/TypeDenotation.md#type-denotation-definition>
     /// for pre-defined type denotations.
-    #[prost(string, optional, tag = "6")]
+    #[prost(string, optional, tag="6")]
     pub denotation: ::core::option::Option<::prost::alloc::string::String>,
     // #endif
-    #[prost(oneof = "type_proto::Value", tags = "1, 4, 5, 9, 8, 7")]
+
+    #[prost(oneof="type_proto::Value", tags="1, 4, 5, 9, 8, 7")]
     pub value: ::core::option::Option<type_proto::Value>,
 }
 /// Nested message and enum types in `TypeProto`.
 pub mod type_proto {
     #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Tensor {
         /// This field MUST NOT have the value of UNDEFINED
         /// This field MUST have a valid TensorProto.DataType value
         /// This field MUST be present for this version of the IR.
-        #[prost(int32, optional, tag = "1")]
+        #[prost(int32, optional, tag="1")]
         pub elem_type: ::core::option::Option<i32>,
-        #[prost(message, optional, tag = "2")]
+        #[prost(message, optional, tag="2")]
         pub shape: ::core::option::Option<super::TensorShapeProto>,
     }
     /// repeated T
     #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Sequence {
         /// The type and optional shape of each element of the sequence.
         /// This field MUST be present for this version of the IR.
-        #[prost(message, optional, boxed, tag = "1")]
+        #[prost(message, optional, boxed, tag="1")]
         pub elem_type: ::core::option::Option<::prost::alloc::boxed::Box<super::TypeProto>>,
     }
     /// map<K,V>
     #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Map {
         /// This field MUST have a valid TensorProto.DataType value
         /// This field MUST be present for this version of the IR.
         /// This field MUST refer to an integral type (\[U\]INT{8|16|32|64}) or STRING
-        #[prost(int32, optional, tag = "1")]
+        #[prost(int32, optional, tag="1")]
         pub key_type: ::core::option::Option<i32>,
         /// This field MUST be present for this version of the IR.
-        #[prost(message, optional, boxed, tag = "2")]
+        #[prost(message, optional, boxed, tag="2")]
         pub value_type: ::core::option::Option<::prost::alloc::boxed::Box<super::TypeProto>>,
     }
     /// wrapper for Tensor, Sequence, or Map
     #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Optional {
         /// The type and optional shape of the element wrapped.
         /// This field MUST be present for this version of the IR.
         /// Possible values correspond to OptionalProto.DataType enum
-        #[prost(message, optional, boxed, tag = "1")]
+        #[prost(message, optional, boxed, tag="1")]
         pub elem_type: ::core::option::Option<::prost::alloc::boxed::Box<super::TypeProto>>,
     }
     #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
     pub struct SparseTensor {
         /// This field MUST NOT have the value of UNDEFINED
         /// This field MUST have a valid TensorProto.DataType value
         /// This field MUST be present for this version of the IR.
-        #[prost(int32, optional, tag = "1")]
+        #[prost(int32, optional, tag="1")]
         pub elem_type: ::core::option::Option<i32>,
-        #[prost(message, optional, tag = "2")]
+        #[prost(message, optional, tag="2")]
         pub shape: ::core::option::Option<super::TensorShapeProto>,
     }
     // #if ONNX-ML
 
     #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Opaque {
         /// When missing, the domain is the same as the model's.
-        #[prost(string, optional, tag = "1")]
+        #[prost(string, optional, tag="1")]
         pub domain: ::core::option::Option<::prost::alloc::string::String>,
         /// The name is optional but significant when provided.
         ///
         /// parameters that help defining the type
         /// DEPRECATED do not use.
         /// repeated TypeProto parameters = 3;
-        #[prost(string, optional, tag = "2")]
+        #[prost(string, optional, tag="2")]
         pub name: ::core::option::Option<::prost::alloc::string::String>,
     }
     // #endif
 
     #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Value {
         /// The type of a tensor.
-        #[prost(message, tag = "1")]
+        #[prost(message, tag="1")]
         TensorType(Tensor),
         // NOTE:  DNN-only implementations of ONNX MAY elect to not support non-tensor values
         //         as input and output to graphs and nodes. These types are needed to naturally
         //         support classical ML operators.  DNN operators SHOULD restrict their input
         //         and output types to tensors.
+
         /// The type of a sequence.
-        #[prost(message, tag = "4")]
+        #[prost(message, tag="4")]
         SequenceType(::prost::alloc::boxed::Box<Sequence>),
         /// The type of a map.
-        #[prost(message, tag = "5")]
+        #[prost(message, tag="5")]
         MapType(::prost::alloc::boxed::Box<Map>),
         /// The type of an optional.
-        #[prost(message, tag = "9")]
+        #[prost(message, tag="9")]
         OptionalType(::prost::alloc::boxed::Box<Optional>),
         /// Type of the sparse tensor
-        #[prost(message, tag = "8")]
+        #[prost(message, tag="8")]
         SparseTensorType(SparseTensor),
         // #if ONNX-ML
-        #[prost(message, tag = "7")]
+
+        #[prost(message, tag="7")]
         OpaqueType(Opaque),
     }
 }
@@ -922,11 +926,11 @@ pub struct OperatorSetIdProto {
     /// The empty string ("") or absence of this field implies the operator
     /// set that is defined as part of the ONNX specification.
     /// This field MUST be present in this version of the IR when referring to any other operator set.
-    #[prost(string, optional, tag = "1")]
+    #[prost(string, optional, tag="1")]
     pub domain: ::core::option::Option<::prost::alloc::string::String>,
     /// The version of the operator set being identified.
     /// This field MUST be present in this version of the IR.
-    #[prost(int64, optional, tag = "2")]
+    #[prost(int64, optional, tag="2")]
     pub version: ::core::option::Option<i64>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -935,28 +939,28 @@ pub struct FunctionProto {
     /// The name of the function, similar usage of op_type in OperatorProto.
     /// Combined with FunctionProto.domain, this forms the unique identity of
     /// the FunctionProto.
-    #[prost(string, optional, tag = "1")]
+    #[prost(string, optional, tag="1")]
     pub name: ::core::option::Option<::prost::alloc::string::String>,
     /// The inputs and outputs of the function.
-    #[prost(string, repeated, tag = "4")]
+    #[prost(string, repeated, tag="4")]
     pub input: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    #[prost(string, repeated, tag = "5")]
+    #[prost(string, repeated, tag="5")]
     pub output: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// The attribute parameters of the function.
     /// It is for function parameters without default values.
-    #[prost(string, repeated, tag = "6")]
+    #[prost(string, repeated, tag="6")]
     pub attribute: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// The attribute protos of the function.
     /// It is for function attributes with default values.
     /// A function attribute shall be represented either as
     /// a string attribute or an AttributeProto, not both.
-    #[prost(message, repeated, tag = "11")]
+    #[prost(message, repeated, tag="11")]
     pub attribute_proto: ::prost::alloc::vec::Vec<AttributeProto>,
     /// The nodes in the function.
-    #[prost(message, repeated, tag = "7")]
+    #[prost(message, repeated, tag="7")]
     pub node: ::prost::alloc::vec::Vec<NodeProto>,
     /// A human-readable documentation for this function. Markdown is allowed.
-    #[prost(string, optional, tag = "8")]
+    #[prost(string, optional, tag="8")]
     pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
     // The OperatorSets this function body (graph) relies on.
     //
@@ -970,11 +974,12 @@ pub struct FunctionProto {
     // and ModelProto then versions for the operator set may be different but,
     // the operator schema returned for op_type, domain, version combination
     // for both the versions should be same.
-    #[prost(message, repeated, tag = "9")]
+
+    #[prost(message, repeated, tag="9")]
     pub opset_import: ::prost::alloc::vec::Vec<OperatorSetIdProto>,
     /// The domain which this function belongs to. Combined with FunctionProto.name, this forms the unique identity of
     /// the FunctionProto.
-    #[prost(string, optional, tag = "10")]
+    #[prost(string, optional, tag="10")]
     pub domain: ::core::option::Option<::prost::alloc::string::String>,
 }
 // Overview
@@ -1134,5 +1139,128 @@ impl OperatorStatus {
             _ => None,
         }
     }
+}
+//
+// This file contains the proto definitions for OperatorSetProto and
+// OperatorProto.  OperatorSetProtos are used to describe a versioned
+// set of operators that can be used by a ModelProto.
+//
+// Like ModelProto, OperatorSetProto is defined as a top-level file/wire
+// format, however their usage is different.
+//
+// ModelProto files are used to describe executable graphs that can be
+// executed directly by a framework, runtime, or engine.
+//
+// OperatorSetProto files are used to describe a set of operators that are
+// available in a given environment.  The file TBD.TBD is the OperatorSetProto
+// that describes the ONNX standard operators.
+//
+
+/// An OperatorProto represents the immutable specification of the signature
+/// and semantics of an operator.
+///
+/// Operators are declared as part of an OperatorSet, which also defines the
+/// domain name for the set.
+///
+/// Operators are uniquely identified by a three part identifier
+///    (domain, op_type, since_version)
+/// where
+///    *domain* is the domain of an operator set that
+///       contains this operator specification.
+///
+///    *op_type* is the name of the operator as referenced by a
+///       NodeProto.op_type
+///
+///    *since_version* is the version of the operator set that
+///       this operator was initially declared in.
+///
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OperatorProto {
+    /// The name of the operator within a domain.
+    /// This field MUST be present in this version of the IR.
+    #[prost(string, optional, tag="1")]
+    pub op_type: ::core::option::Option<::prost::alloc::string::String>,
+    /// The version of the operator set that first introduced this
+    /// operator. This value MUST be the same value as the
+    /// opset_version of the operator set that first published this operator.
+    /// Subsequent versions of the operator set MUST NOT alter the signature
+    /// or semantics of the operator once published as STABLE.
+    /// This field MUST be present in this version of the IR.
+    #[prost(int64, optional, tag="2")]
+    pub since_version: ::core::option::Option<i64>,
+    /// This field indicates whether the syntax, semantics, or presence
+    /// of this operator is in an experimental or stable stage. Once an
+    /// operator is published as STABLE, it's syntax and semantics MUST NOT
+    /// change in subsequent versions of the operator set.
+    /// When an operator is published as EXPERIMENTAL, the syntax and semantics
+    /// of the operator MAY change across operator set versions.
+    /// Operators "become" stable by deprecating the experimental version and
+    /// introducing a new stable operator with the same op_type.
+    #[prost(enumeration="OperatorStatus", optional, tag="3")]
+    pub status: ::core::option::Option<i32>,
+    // Eventually we will declare the signature of the operator here
+
+    /// A human-readable documentation for this operator. Markdown is allowed.
+    #[prost(string, optional, tag="10")]
+    pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// An OperatorSetProto represents an immutable set of immutable operator
+/// specifications.
+///
+/// The domain of the set (OperatorSetProto.domain) is a reverse-DNS name
+/// that disambiguates operator sets defined by independent entities.
+///
+/// The version of the set (opset_version) is a monotonically increasing
+/// integer that indicates changes to the membership of the operator set.
+///
+///
+/// Operator sets are uniquely identified by a two part identifier (domain, opset_version)
+///
+/// Like ModelProto, OperatorSetProto is intended as a top-level file/wire format,
+/// and thus has the standard format headers in addition to the operator set information.
+///
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OperatorSetProto {
+    /// All OperatorSetProtos start with a distingushed byte sequence to disambiguate
+    /// protobuf files containing OperatorSets from other content.
+    /// This field MUST be "ONNXOPSET"
+    /// This field MUST be present in this version of the IR
+    #[prost(string, optional, tag="1")]
+    pub magic: ::core::option::Option<::prost::alloc::string::String>,
+    /// All OperatorSetProtos indicate the version of the IR syntax and semantics
+    /// they adhere to. It is always IR_VERSION.
+    /// This field MUST be present in this version of the IR
+    #[prost(int64, optional, tag="2")]
+    pub ir_version: ::core::option::Option<i64>,
+    /// The prerelease component of the SemVer of the IR.
+    /// This field MAY be absent in this version of the IR
+    #[prost(string, optional, tag="3")]
+    pub ir_version_prerelease: ::core::option::Option<::prost::alloc::string::String>,
+    /// The build metadata component of the SemVer of the IR.
+    /// This field MAY be absent in this version of the IR
+    #[prost(string, optional, tag="7")]
+    pub ir_build_metadata: ::core::option::Option<::prost::alloc::string::String>,
+    /// Domain name of the operator set, in reverse DNS form (e.g., com.acme.dnnops).
+    #[prost(string, optional, tag="4")]
+    pub domain: ::core::option::Option<::prost::alloc::string::String>,
+    /// The version of the set of operators. This is a simple int value
+    /// that is monotonically increasing as new versions of the operator set
+    /// are published. All operators in this set MUST have since_version
+    /// <= opset_version.
+    #[prost(int64, optional, tag="5")]
+    pub opset_version: ::core::option::Option<i64>,
+    /// A human-readable documentation for this set of operators. Markdown is allowed.
+    #[prost(string, optional, tag="6")]
+    pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
+    /// The operators specified by this operator set.
+    /// The (name, version) MUST be unique across all OperatorProtos in operator
+    #[prost(message, repeated, tag="8")]
+    pub operator: ::prost::alloc::vec::Vec<OperatorProto>,
+    /// The functions specified by this operator set.
+    /// The (name, version) MUST be unique across all OperatorProtos/FunctionProtos in operator/functions
+    #[prost(message, repeated, tag="9")]
+    pub functions: ::prost::alloc::vec::Vec<FunctionProto>,
 }
 // @@protoc_insertion_point(module)
