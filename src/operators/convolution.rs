@@ -10,7 +10,7 @@ pub struct ConvAttributes {
     strides: [usize; 2],
 }
 
-pub fn convolution(
+pub fn conv(
     input: Array4<f32>,
     weights: Array4<f32>,
     bias: Option<Array1<f32>>,

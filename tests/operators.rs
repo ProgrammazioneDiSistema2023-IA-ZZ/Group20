@@ -33,7 +33,7 @@ fn test_convolution_basic() {
     let w = load4d("tests/tensors/convolution/basic/w.npy", w_shape);
     let y = load4d("tests/tensors/convolution/basic/y.npy", y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = convolution(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -48,7 +48,7 @@ fn test_convolution_stride2() {
     let w = load4d("tests/tensors/convolution/stride2/w.npy", w_shape);
     let y = load4d("tests/tensors/convolution/stride2/y.npy", y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [0, 0, 0, 0], [2, 2]);
-    let my_y = convolution(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -63,7 +63,7 @@ fn test_convolution_pad1() {
     let w = load4d("tests/tensors/convolution/pad1/w.npy", w_shape);
     let y = load4d("tests/tensors/convolution/pad1/y.npy", y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = convolution(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -78,7 +78,7 @@ fn test_convolution_dil2() {
     let w = load4d("tests/tensors/convolution/dil2/w.npy", w_shape);
     let y = load4d("tests/tensors/convolution/dil2/y.npy", y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = convolution(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -93,7 +93,7 @@ fn test_convolution_dil2big() {
     let w = load4d("tests/tensors/convolution/dil2big/w.npy", w_shape);
     let y = load4d("tests/tensors/convolution/dil2big/y.npy", y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = convolution(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -108,7 +108,7 @@ fn test_convolution_dil2big_stride2() {
     let w = load4d("tests/tensors/convolution/dil2big_stride2/w.npy", w_shape);
     let y = load4d("tests/tensors/convolution/dil2big_stride2/y.npy", y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [2, 2]);
-    let my_y = convolution(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -132,7 +132,7 @@ fn test_convolution_dil2big_stride2_pad2() {
         y_shape,
     );
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = convolution(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -147,7 +147,7 @@ fn test_convolution_complete() {
     let w = load4d("tests/tensors/convolution/complete/w.npy", w_shape);
     let y = load4d("tests/tensors/convolution/complete/y.npy", y_shape);
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = convolution(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -164,7 +164,7 @@ fn test_convolution_complete_bias() {
     let b = load1d("tests/tensors/convolution/complete_bias/b.npy", b_shape);
     let y = load4d("tests/tensors/convolution/complete_bias/y.npy", y_shape);
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = convolution(x, w, Some(b), attrs);
+    let my_y = conv(x, w, Some(b), attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
