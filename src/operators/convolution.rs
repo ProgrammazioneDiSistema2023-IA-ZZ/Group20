@@ -171,15 +171,11 @@ pub fn max_pool(x: Array4<f32>, attrs: MaxPoolAttributes) -> Array4<f32> {
 
                     let mut result: f32 = f32::MIN;
                     // iterate over the window defined by the kernel
-                    for input_row in win_sh..win_eh {
-                        if input_row >= 0 && input_row < height as i64 {
-                            for input_col in win_sw..win_ew {
-                                if input_col >= 0 && input_col < width as i64 {
-                                    result = result.max(
-                                        x[[batch, channel, input_row as usize, input_col as usize]],
-                                    )
-                                }
-                            }
+                    for input_row in win_sh.max(0)..win_eh.min(height as i64) {
+                        for input_col in win_sw.max(0)..win_ew.min(width as i64) {
+                            result = result.max(
+                                x[[batch, channel, input_row as usize, input_col as usize]],
+                            )
                         }
                     }
                     // compute output tensor indexes and update the corresponding value
