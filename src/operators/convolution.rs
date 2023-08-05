@@ -38,14 +38,14 @@ pub fn convolution(
 
     // result tensor
     let mut output: Array4<f32> = Array4::<f32>::from_elem(out_shape, 0.0);
-    let bias = bias.unwrap_or(Array1::from_shape_fn([n_featmaps], |_| 0.0));
+    let bias = bias.unwrap_or(Array1::from_vec(vec![0.0; n_featmaps]));
 
     for batch in 0..batch_size {
         for featmap in 0..n_featmaps {
             // get the group index of the feature map and compute input channel group bounds
             let group: usize = featmap / output_group_size;
-            let first_group = group * input_group_size;
-            let last_group = first_group + input_group_size;
+            let group_s = group * input_group_size;
+            let group_e = group_s + input_group_size;
 
             // declaration of tensor bounds considering padding
             let tens_hs: i64 = 0_i64 - (pad_hs as i64);
@@ -74,7 +74,7 @@ pub fn convolution(
                                 continue;
                             }
                             // iterate also along all channels and increment accumulator
-                            for channel in first_group..last_group {
+                            for channel in group_s..group_e {
                                 let group_channel = channel % input_group_size;
                                 accumulator += input
                                     [[batch, channel, input_row as usize, input_col as usize]]
