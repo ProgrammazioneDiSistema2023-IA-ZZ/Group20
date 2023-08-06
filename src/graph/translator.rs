@@ -1,3 +1,4 @@
+
 use crate::onnx_format;
 use crate::operators::{Operator, Tensor, BatchNormAttributes, ConvAttributes, MaxPoolAttributes, GemmAttributes, ClipAttributes, GatherAttributes, UnsqueezeAttributes, ConcatAttributes};
 
@@ -9,13 +10,22 @@ use petgraph::Graph;
 #[test]
 fn print_parsed_model_test(){
     let mut buffer = Vec::new();
-    let mut file = File::open("tests/models/mobilenetv2-10.onnx").unwrap();
+    // let mut file = File::open("tests/models/mobilenetv2-10.onnx").unwrap();
+    let mut file = File::open("tests/models/resnet18-v2-7.onnx").unwrap();
     file.read_to_end(&mut buffer).unwrap();
 
     let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
-    for node in parsed_model.unwrap().graph.unwrap().node{
-        println!("{:?}\n", node );
+    let initializer = parsed_model.unwrap().graph.unwrap().initializer;
+    println!("\nlength of initializer: {}\n\n", initializer.len());
+
+    for tensor in initializer{
+       println!("{:?}\n\n\n", tensor);
+       break;
     }
+    
+    // for node in parsed_model.unwrap().graph.unwrap().node{
+    //     println!("{:?}\n", node );
+    // }
 }
 
 fn get_parsed_model(path: &str) -> onnx_format::ModelProto {
@@ -40,6 +50,7 @@ pub fn create_graph(){
         //let pg = deps.add_node("petgraph");
 
         let op_type = node.op_type.expect("Failed to unwrap node op_type in create_graph()");
+        let inputs = node.input;
 
         let operator: Operator = match op_type.as_str() {
             "BatchNormalitazion" => {
@@ -49,6 +60,12 @@ pub fn create_graph(){
                     node.attribute[1].f.expect("Failed to unwrap f in momentum attribute"),
                     node.attribute[2].i.expect("Failed to unwrap i in momentum attribute")
                 );
+
+                for inp in inputs{
+                    todo!()
+                    // Per ogni inp, cercare il corrispondente initializer con un algoritmo di ricerca.
+                    // farlo in una funzione
+                }
 
                 Operator::BatchNorm(attrs)
             },
