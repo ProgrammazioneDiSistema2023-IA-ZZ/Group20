@@ -1,4 +1,5 @@
-use onnx_runtime::{onnx_format, graph::load_output, graph::load_input};
+use onnx_runtime::onnx_format;
+use onnx_runtime::{graph::load_output, graph::load_input};
 use prost::Message;
 use std::{
     env,
