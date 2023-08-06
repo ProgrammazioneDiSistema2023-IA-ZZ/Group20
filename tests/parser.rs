@@ -1,4 +1,5 @@
 use onnx_runtime::onnx_format;
+use onnx_runtime::{graph::load_output, graph::load_input};
 use prost::Message;
 use std::{
     env,
@@ -110,4 +111,17 @@ fn serialize_simple_model() {
     serialized_file.write_all(&buffer).unwrap();
 
     assert!(serialization.is_ok())
+}
+
+#[test]
+fn deserialize_test_data() {
+    let mobilenet_input = load_input("tests/testset/mobilenet/input_0.pb");
+    let resnet_input = load_input("tests/testset/resnet/input_0.pb");
+    let mobilenet_output = load_output("tests/testset/mobilenet/output_0.pb");
+    let resnet_output = load_output("tests/testset/resnet/output_0.pb");
+
+    assert_eq!(mobilenet_input.shape(), [1, 3, 224, 224]);
+    assert_eq!(resnet_input.shape(), [1, 3, 224, 224]);
+    assert_eq!(mobilenet_output.shape(), [1, 1000]);
+    assert_eq!(resnet_output.shape(), [1, 1000]);
 }
