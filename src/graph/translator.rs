@@ -1,10 +1,22 @@
 use crate::onnx_format;
-use crate::operators::{Operator, Tensor, BatchNormAttributes, ConvAttributes, MaxPoolAttributes, GemmAttributes};
+use crate::operators::{Operator, Tensor, BatchNormAttributes, ConvAttributes, MaxPoolAttributes, GemmAttributes, ClipAttributes, GatherAttributes, UnsqueezeAttributes, ConcatAttributes};
 
 use core::panic;
 use std::{fs::File, io::Read};
 use prost::Message;
 use petgraph::Graph;
+
+#[test]
+fn print_parsed_model_test(){
+    let mut buffer = Vec::new();
+    let mut file = File::open("tests/models/mobilenetv2-10.onnx").unwrap();
+    file.read_to_end(&mut buffer).unwrap();
+
+    let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
+    for node in parsed_model.unwrap().graph.unwrap().node{
+        println!("{:?}\n", node );
+    }
+}
 
 fn get_parsed_model(path: &str) -> onnx_format::ModelProto {
     let mut buffer = Vec::new();
@@ -82,8 +94,42 @@ pub fn create_graph(){
 
                 Operator::Gemm(attrs)
             },
+            "Clip" => {
+                let attrs: ClipAttributes = ClipAttributes::new(
+                    node.attribute[1].f.expect("Failed to unwrap f in min attribute"),
+                    node.attribute[0].f.expect("Failed to unwrap f in max attribute"),
+                );
+
+                Operator::Clip(attrs)
+            },
+            "Shape" => {
+                Operator::Shape
+            },
+            "Gather" => {
+                let attrs: GatherAttributes = GatherAttributes::new(
+                    node.attribute[0].i.expect("Failed to unwrap i in axes attribute") as usize,
+                );
+
+                Operator::Gather(attrs)
+            },
+            "Unsqueeze" => {
+                let attrs: UnsqueezeAttributes = UnsqueezeAttributes::new(
+                    node.attribute[0].ints[0] as usize,
+                );
+
+                Operator::Unsqueeze(attrs)
+            },
+            "Concat" => {
+                let attrs: ConcatAttributes = ConcatAttributes::new(
+                    node.attribute[0].i.expect("Failed to unwrap i in axes attribute") as usize,
+                );
+
+                Operator::Concat(attrs)
+            },
             _ => panic!("No matched value for op_type"),
         };
+
+        let n = graph.add_node(operator);
 
     }
 
