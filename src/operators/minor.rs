@@ -1,4 +1,4 @@
-use ndarray::{Array0, Array1, Array2, Array4};
+use ndarray::{ArrayD, Ix0, Ix2, IxDyn};
 use std::ops::Add;
 
 pub struct ClipAttributes {
@@ -12,7 +12,7 @@ impl ClipAttributes {
     }
 }
 
-pub fn clip(x: Array4<f32>, attrs: ClipAttributes) -> Array4<f32> {
+pub fn clip(x: ArrayD<f32>, attrs: ClipAttributes) -> ArrayD<f32> {
     let ClipAttributes {
         min: min_v,
         max: max_v,
@@ -20,12 +20,12 @@ pub fn clip(x: Array4<f32>, attrs: ClipAttributes) -> Array4<f32> {
     x.mapv(|x| x.max(min_v).min(max_v))
 }
 
-pub fn add(x: Array4<f32>, y: Array4<f32>) -> Array4<f32> {
+pub fn add(x: ArrayD<f32>, y: ArrayD<f32>) -> ArrayD<f32> {
     x.add(y)
 }
 
-pub fn shape(x: Array4<f32>) -> Array1<usize> {
-    Array1::<usize>::from_vec(x.shape().to_vec())
+pub fn shape(x: ArrayD<f32>) -> ArrayD<usize> {
+    ArrayD::<usize>::from_shape_vec(IxDyn(&[x.shape().len()]), x.shape().to_vec()).unwrap()
 }
 
 #[derive(Default)]
@@ -39,41 +39,44 @@ impl GatherAttributes {
     }
 }
 
-pub fn gather(x: Array1<usize>, index: usize, attrs: GatherAttributes) -> Array0<usize> {
+pub fn gather(x: ArrayD<usize>, index: usize, attrs: GatherAttributes) -> ArrayD<usize> {
     assert!(attrs.axes == 0); // this is the only use case we are interested in
-    Array0::<usize>::from_shape_fn([], |_| x[[index]])
-    //    Array0::<usize>::from_vec(vec![x[[index]]])
+    ArrayD::<usize>::from_shape_fn(IxDyn(&[]), |_| x[[index]])
 }
 
 pub type UnsqueezeAttributes = GatherAttributes;
 
-pub fn unsqueeze(x: Array0<usize>, attrs: UnsqueezeAttributes) -> Array1<usize> {
+pub fn unsqueeze(x: ArrayD<usize>, attrs: UnsqueezeAttributes) -> ArrayD<usize> {
     assert!(attrs.axes == 0); // this is the only use case we are interested in
-    Array1::<usize>::from_shape_vec([1], vec![x.into_scalar()]).expect("Unsqueeze failed")
+    ArrayD::<usize>::from_shape_vec(
+        IxDyn(&[1]),
+        vec![x.into_dimensionality::<Ix0>().unwrap().into_scalar()],
+    )
+    .expect("Unsqueeze failed")
 }
 
 pub type ConcatAttributes = GatherAttributes;
 
-pub fn concat(x: Vec<Array1<i64>>, attrs: ConcatAttributes) -> Array1<i64> {
+pub fn concat(x: Vec<ArrayD<i64>>, attrs: ConcatAttributes) -> ArrayD<i64> {
     assert!(!x.is_empty());
     assert!(attrs.axes == 0); // this is the only use case we are interested in
-    Array1::from_shape_fn([x.len()], |i| x[i][[0]])
+    ArrayD::from_shape_fn(IxDyn(&[x.len()]), |i| x[i[0]][[0]])
 }
 
-pub fn global_average_pool(x: Array4<f32>) -> Array4<f32> {
+pub fn global_average_pool(x: ArrayD<f32>) -> ArrayD<f32> {
     let [batch_size, channels, height, width] = *x.shape() else {todo!("Failed global average pool")};
-    Array4::from_shape_fn([batch_size, channels, 1, 1], |(bs, c, _, _)| {
+    ArrayD::from_shape_fn(IxDyn(&[batch_size, channels, 1, 1]), |idx| {
         let mut accumulator = 0.0;
         for i in 0..height {
             for j in 0..width {
-                accumulator += x[[bs, c, i, j]];
+                accumulator += x[[idx[0], idx[1], i, j]];
             }
         }
         accumulator / (height * width) as f32
     })
 }
 
-pub fn reshape(x: Array4<f32>, shape: Array1<i64>) -> Array2<f32> {
+pub fn reshape(x: ArrayD<f32>, shape: ArrayD<i64>) -> ArrayD<f32> {
     let mut myshape: [usize; 2] = [0, 0];
     let xshape = x.shape();
     for i in 0..shape.len() {
@@ -85,7 +88,7 @@ pub fn reshape(x: Array4<f32>, shape: Array1<i64>) -> Array2<f32> {
             myshape[i] = shape[i] as usize;
         }
     }
-    x.into_shape(myshape).unwrap()
+    x.into_shape(IxDyn(&myshape)).unwrap()
 }
 
 pub struct GemmAttributes {
@@ -106,15 +109,24 @@ impl GemmAttributes {
     }
 }
 
-pub fn gemm(a: Array2<f32>, b: Array2<f32>, c: Array2<f32>, attrs: GemmAttributes) -> Array2<f32> {
+pub fn gemm(a: ArrayD<f32>, b: ArrayD<f32>, c: ArrayD<f32>, attrs: GemmAttributes) -> ArrayD<f32> {
     let GemmAttributes {
         alpha,
         beta,
         trans_a,
         trans_b,
     } = attrs;
-    let act_a = if trans_a == 0 { a } else { a.t().to_owned() };
-    let act_b = if trans_b == 0 { b } else { b.t().to_owned() };
+    let act_a = if trans_a == 0 {
+        a.into_dimensionality::<Ix2>().unwrap()
+    } else {
+        a.into_dimensionality::<Ix2>().unwrap().t().to_owned()
+    };
+    let act_b = if trans_b == 0 {
+        b.into_dimensionality::<Ix2>().unwrap()
+    } else {
+        b.into_dimensionality::<Ix2>().unwrap().t().to_owned()
+    };
+
     let ab = alpha * act_a.dot(&act_b);
     ab + beta * c
 }
@@ -137,29 +149,40 @@ impl BatchNormAttributes {
 }
 
 pub fn batch_norm(
-    x: Array4<f32>,
-    scale: Array1<f32>,
-    b: Array1<f32>,
-    mean: Array1<f32>,
-    var: Array1<f32>,
+    x: ArrayD<f32>,
+    scale: ArrayD<f32>,
+    b: ArrayD<f32>,
+    mean: ArrayD<f32>,
+    var: ArrayD<f32>,
     attrs: BatchNormAttributes,
-) -> Array4<f32> {
+) -> ArrayD<f32> {
     let BatchNormAttributes {
         epsilon,
         momentum: _,
         spatial,
     } = attrs;
     assert!(spatial != 0); // this is the only use case we are interested in
-    let mean = Array4::from_shape_vec([1, x.shape()[1], 1, 1], mean.to_vec()).unwrap();
-    let b = Array4::from_shape_vec([1, x.shape()[1], 1, 1], b.to_vec()).unwrap();
-    let scale = Array4::from_shape_vec([1, x.shape()[1], 1, 1], scale.to_vec()).unwrap();
-    let var = Array4::from_shape_vec([1, x.shape()[1], 1, 1], var.to_vec()).unwrap();
+    let mean = mean
+        .to_shape(IxDyn(&[1, x.shape()[1], 1, 1]))
+        .unwrap()
+        .to_owned();
+    let b = b
+        .to_shape(IxDyn(&[1, x.shape()[1], 1, 1]))
+        .unwrap()
+        .to_owned();
+    let scale = scale
+        .to_shape(IxDyn(&[1, x.shape()[1], 1, 1]))
+        .unwrap()
+        .to_owned();
+    let var = var
+        .to_shape(IxDyn(&[1, x.shape()[1], 1, 1]))
+        .unwrap()
+        .to_owned();
 
     let x_normalized = (x - mean) / (var + epsilon).mapv(|v| v.sqrt());
-
     scale * x_normalized + b
 }
 
-pub fn relu(x: Array4<f32>) -> Array4<f32> {
+pub fn relu(x: ArrayD<f32>) -> ArrayD<f32> {
     x.mapv(|v| v.max(0.0))
 }

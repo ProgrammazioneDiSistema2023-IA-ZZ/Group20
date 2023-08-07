@@ -1,5 +1,4 @@
-use ndarray::Array1;
-use ndarray::Array4;
+use ndarray::{ArrayD, IxDyn};
 
 pub struct ConvAttributes {
     // assuming 4D tensors
@@ -11,11 +10,11 @@ pub struct ConvAttributes {
 }
 
 pub fn conv(
-    input: Array4<f32>,
-    weights: Array4<f32>,
-    bias: Option<Array1<f32>>,
+    input: ArrayD<f32>,
+    weights: ArrayD<f32>,
+    bias: Option<ArrayD<f32>>,
     attributes: ConvAttributes,
-) -> Array4<f32> {
+) -> ArrayD<f32> {
     let [batch_size, in_chans, height, width] = *input.shape() else {todo!("conv2d: invalid input tensor shape")};
     let n_featmaps = weights.shape()[0];
     let ConvAttributes {
@@ -37,8 +36,8 @@ pub fn conv(
     let act_kern_w = (dilat_w * (kern_w - 1) + 1) as i64;
 
     // result tensor
-    let mut output: Array4<f32> = Array4::<f32>::from_elem(out_shape, 0.0);
-    let bias = bias.unwrap_or(Array1::from_vec(vec![0.0; n_featmaps]));
+    let mut output: ArrayD<f32> = ArrayD::<f32>::from_elem(IxDyn(&out_shape), 0.0);
+    let bias = bias.unwrap_or(ArrayD::from_shape_fn(IxDyn(&[n_featmaps]), |_| 0.0));
 
     for batch in 0..batch_size {
         for featmap in 0..n_featmaps {
@@ -139,7 +138,7 @@ impl MaxPoolAttributes {
     }
 }
 
-pub fn max_pool(x: Array4<f32>, attrs: MaxPoolAttributes) -> Array4<f32> {
+pub fn max_pool(x: ArrayD<f32>, attrs: MaxPoolAttributes) -> ArrayD<f32> {
     let MaxPoolAttributes {
         kernel_shape: [kern_h, kern_w],
         pads: [pad_hs, pad_ws, pad_he, pad_we],
@@ -151,7 +150,7 @@ pub fn max_pool(x: Array4<f32>, attrs: MaxPoolAttributes) -> Array4<f32> {
     let out_shape = [batch_size, in_chans, out_height, out_width];
 
     // result tensor
-    let mut output: Array4<f32> = Array4::<f32>::from_elem(out_shape, 0.0);
+    let mut output: ArrayD<f32> = ArrayD::<f32>::from_elem(IxDyn(&out_shape), 0.0);
     for batch in 0..batch_size {
         for channel in 0..in_chans {
             // declaration of tensor bounds considering padding
@@ -173,9 +172,8 @@ pub fn max_pool(x: Array4<f32>, attrs: MaxPoolAttributes) -> Array4<f32> {
                     // iterate over the window defined by the kernel
                     for input_row in win_sh.max(0)..win_eh.min(height as i64) {
                         for input_col in win_sw.max(0)..win_ew.min(width as i64) {
-                            result = result.max(
-                                x[[batch, channel, input_row as usize, input_col as usize]],
-                            )
+                            result = result
+                                .max(x[[batch, channel, input_row as usize, input_col as usize]])
                         }
                     }
                     // compute output tensor indexes and update the corresponding value

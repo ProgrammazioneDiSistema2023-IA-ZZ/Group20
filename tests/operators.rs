@@ -1,27 +1,27 @@
-use ndarray::{arr0, arr2, Array1, Array2, Array4};
+use ndarray::{arr2, ArrayD, IxDyn};
 use npy::NpyData;
 use onnx_runtime::operators::*;
 use std::fs::File;
 use std::io::Read;
 use std::ops::Sub;
 
-fn load4d(path: &str, shape: [usize; 4]) -> Array4<f32> {
+fn load4d(path: &str, shape: [usize; 4]) -> ArrayD<f32> {
     let mut buf = vec![];
     File::open(path).unwrap().read_to_end(&mut buf).unwrap();
     let array_data: NpyData<'_, f32> = NpyData::from_bytes(&buf).expect("Failed from_bytes");
-    Array4::<f32>::from_shape_vec(shape, array_data.to_vec()).unwrap()
+    ArrayD::<f32>::from_shape_vec(IxDyn(&shape), array_data.to_vec()).unwrap()
 }
-fn load1d(path: &str, shape: [usize; 1]) -> Array1<f32> {
+fn load1d(path: &str, shape: [usize; 1]) -> ArrayD<f32> {
     let mut buf = vec![];
     File::open(path).unwrap().read_to_end(&mut buf).unwrap();
     let array_data: NpyData<'_, f32> = NpyData::from_bytes(&buf).expect("Failed from_bytes");
-    Array1::<f32>::from_shape_vec(shape, array_data.to_vec()).unwrap()
+    ArrayD::<f32>::from_shape_vec(IxDyn(&shape), array_data.to_vec()).unwrap()
 }
-fn load2d(path: &str, shape: [usize; 2]) -> Array2<f32> {
+fn load2d(path: &str, shape: [usize; 2]) -> ArrayD<f32> {
     let mut buf = vec![];
     File::open(path).unwrap().read_to_end(&mut buf).unwrap();
     let array_data: NpyData<'_, f32> = NpyData::from_bytes(&buf).expect("Failed from_bytes");
-    Array2::<f32>::from_shape_vec(shape, array_data.to_vec()).unwrap()
+    ArrayD::<f32>::from_shape_vec(IxDyn(&shape), array_data.to_vec()).unwrap()
 }
 
 #[test]
@@ -200,36 +200,36 @@ fn test_add() {
 #[test]
 fn test_shape() {
     let x_shape = [64, 32, 5, 5];
-    let x = Array4::<f32>::from_shape_fn(x_shape, |_| 0.0);
+    let x = ArrayD::<f32>::from_shape_fn(IxDyn(&x_shape), |_| 0.0);
     let my_x_shape = shape(x);
-    assert_eq!(my_x_shape.to_vec(), x_shape);
+    assert_eq!(my_x_shape.into_raw_vec(), x_shape);
 }
 
 #[test]
 fn test_gather() {
-    let x = Array1::from_vec(vec![64, 32, 5, 5]);
+    let x = ArrayD::from_shape_vec(IxDyn(&[4]), vec![64, 32, 5, 5]).unwrap();
     let attrs = GatherAttributes::new(0);
     let gathered = gather(x, 0, attrs);
-    let expected = arr0(64);
+    let expected = ArrayD::from_shape_fn(IxDyn(&[]), |_|64);
     assert_eq!(gathered, expected);
 }
 
 #[test]
 fn test_unqueeze() {
-    let x = arr0(64);
+    let x = ArrayD::from_shape_fn(IxDyn(&[]), |_|64);
     let attrs = UnsqueezeAttributes::new(0);
     let unsqueezed = unsqueeze(x, attrs);
-    let expected = Array1::<usize>::from_vec(vec![64]);
+    let expected = ArrayD::<usize>::from_shape_vec(IxDyn(&[1]), vec![64]).unwrap();
     assert_eq!(unsqueezed, expected);
 }
 
 #[test]
 fn test_concat() {
-    let x1 = Array1::from_vec(vec![64]);
-    let x2 = Array1::from_vec(vec![-1]);
+    let x1 = ArrayD::from_shape_vec(IxDyn(&[1]), vec![64]).unwrap();
+    let x2 = ArrayD::from_shape_vec(IxDyn(&[1]), vec![-1]).unwrap();
     let attrs = ConcatAttributes::new(0);
     let concated = concat(vec![x1, x2], attrs);
-    let expected = Array1::<i64>::from_vec(vec![64, -1]);
+    let expected = ArrayD::<i64>::from_shape_vec(IxDyn(&[2]), vec![64, -1]).unwrap();
     assert_eq!(concated, expected);
 }
 
@@ -249,7 +249,7 @@ fn test_global_average_pool() {
 fn test_reshape() {
     let x_shape = [8, 4, 1, 1];
     let y_shape = [8, 4];
-    let shape = Array1::from_vec(vec![8, -1]);
+    let shape = ArrayD::from_shape_vec(IxDyn(&[2]), vec![8, -1]).unwrap();
     let x = load4d("tests/tensors/reshape/x.npy", x_shape);
     let y = load2d("tests/tensors/reshape/y.npy", y_shape);
     let my_y = reshape(x, shape);
@@ -266,13 +266,13 @@ fn test_gemm() {
        C -> (4)
        Y -> (2, 4)
     */
-    let a: Array2<f32> = arr2(&[[2.0, 3.0, 4.0], [4.0, 5.0, 6.0]]);
-    let b: Array2<f32> = arr2(&[
+    let a: ArrayD<f32> = arr2(&[[2.0, 3.0, 4.0], [4.0, 5.0, 6.0]]).into_dimensionality::<IxDyn>().unwrap();
+    let b: ArrayD<f32> = arr2(&[
         [0.1, 1.0, 10.0, 100.0],
         [0.2, 2.0, 20.0, 200.0],
         [0.3, 3.0, 30.0, 300.0],
-    ]);
-    let c: Array2<f32> = arr2(&[[0.5, -0.5, 0.5, -0.5]]);
+    ]).into_dimensionality::<IxDyn>().unwrap();
+    let c: ArrayD<f32> = arr2(&[[0.5, -0.5, 0.5, -0.5]]).into_dimensionality::<IxDyn>().unwrap();
     let attrs = GemmAttributes::new(2.0, 0.1, 0, 0);
     let y_shape = [2, 4];
     let y = load2d("tests/tensors/gemm/y.npy", y_shape);
@@ -291,12 +291,12 @@ fn test_batchnorm_small() {
     let shape_var = [2];
     let shape_y = [2, 2, 3, 3];
 
-    let x: Array4<f32> = load4d("tests/tensors/bn/small/x.npy", shape_x);
-    let mean: Array1<f32> = load1d("tests/tensors/bn/small/mean.npy", shape_mean);
-    let b: Array1<f32> = load1d("tests/tensors/bn/small/b.npy", shape_b);
-    let scale: Array1<f32> = load1d("tests/tensors/bn/small/scale.npy", shape_scale);
-    let var: Array1<f32> = load1d("tests/tensors/bn/small/var.npy", shape_var);
-    let y: Array4<f32> = load4d("tests/tensors/bn/small/y.npy", shape_y);
+    let x: ArrayD<f32> = load4d("tests/tensors/bn/small/x.npy", shape_x);
+    let mean: ArrayD<f32> = load1d("tests/tensors/bn/small/mean.npy", shape_mean);
+    let b: ArrayD<f32> = load1d("tests/tensors/bn/small/b.npy", shape_b);
+    let scale: ArrayD<f32> = load1d("tests/tensors/bn/small/scale.npy", shape_scale);
+    let var: ArrayD<f32> = load1d("tests/tensors/bn/small/var.npy", shape_var);
+    let y: ArrayD<f32> = load4d("tests/tensors/bn/small/y.npy", shape_y);
     let attrs = BatchNormAttributes::new(1e-5, 0.9, 1);
 
     let my_y = batch_norm(x, scale, b, mean, var, attrs);
@@ -314,12 +314,12 @@ fn test_batchnorm_normal() {
     let shape_var = [8];
     let shape_y = [16, 8, 7, 7];
 
-    let x: Array4<f32> = load4d("tests/tensors/bn/normal/x.npy", shape_x);
-    let mean: Array1<f32> = load1d("tests/tensors/bn/normal/mean.npy", shape_mean);
-    let b: Array1<f32> = load1d("tests/tensors/bn/normal/b.npy", shape_b);
-    let scale: Array1<f32> = load1d("tests/tensors/bn/normal/scale.npy", shape_scale);
-    let var: Array1<f32> = load1d("tests/tensors/bn/normal/var.npy", shape_var);
-    let y: Array4<f32> = load4d("tests/tensors/bn/normal/y.npy", shape_y);
+    let x: ArrayD<f32> = load4d("tests/tensors/bn/normal/x.npy", shape_x);
+    let mean: ArrayD<f32> = load1d("tests/tensors/bn/normal/mean.npy", shape_mean);
+    let b: ArrayD<f32> = load1d("tests/tensors/bn/normal/b.npy", shape_b);
+    let scale: ArrayD<f32> = load1d("tests/tensors/bn/normal/scale.npy", shape_scale);
+    let var: ArrayD<f32> = load1d("tests/tensors/bn/normal/var.npy", shape_var);
+    let y: ArrayD<f32> = load4d("tests/tensors/bn/normal/y.npy", shape_y);
     let attrs = BatchNormAttributes::new(1e-5, 0.9, 1);
 
     let my_y = batch_norm(x, scale, b, mean, var, attrs);
@@ -333,8 +333,8 @@ fn test_batchnorm_normal() {
 fn test_relu() {
     let shape_x = [4, 4, 5, 5];
     let shape_y = [4, 4, 5, 5];
-    let x: Array4<f32> = load4d("tests/tensors/relu/x.npy", shape_x);
-    let y: Array4<f32> = load4d("tests/tensors/relu/y.npy", shape_y);
+    let x: ArrayD<f32> = load4d("tests/tensors/relu/x.npy", shape_x);
+    let y: ArrayD<f32> = load4d("tests/tensors/relu/y.npy", shape_y);
     let my_y = relu(x);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
@@ -345,8 +345,8 @@ fn test_relu() {
 fn test_max_pool() {
     let shape_x = [8, 4, 9, 9];
     let shape_y = [8, 4, 5, 5];
-    let x: Array4<f32> = load4d("tests/tensors/maxpool/x.npy", shape_x);
-    let y: Array4<f32> = load4d("tests/tensors/maxpool/y.npy", shape_y);
+    let x: ArrayD<f32> = load4d("tests/tensors/maxpool/x.npy", shape_x);
+    let y: ArrayD<f32> = load4d("tests/tensors/maxpool/y.npy", shape_y);
     let attrs = MaxPoolAttributes::new([3, 3], [1, 1, 1, 1], [2, 2]);
     let my_y = max_pool(x, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
