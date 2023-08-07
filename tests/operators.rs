@@ -210,13 +210,13 @@ fn test_gather() {
     let x = ArrayD::from_shape_vec(IxDyn(&[4]), vec![64, 32, 5, 5]).unwrap();
     let attrs = GatherAttributes::new(0);
     let gathered = gather(x, 0, attrs);
-    let expected = ArrayD::from_shape_fn(IxDyn(&[]), |_|64);
+    let expected = ArrayD::from_shape_fn(IxDyn(&[]), |_| 64);
     assert_eq!(gathered, expected);
 }
 
 #[test]
 fn test_unqueeze() {
-    let x = ArrayD::from_shape_fn(IxDyn(&[]), |_|64);
+    let x = ArrayD::from_shape_fn(IxDyn(&[]), |_| 64);
     let attrs = UnsqueezeAttributes::new(0);
     let unsqueezed = unsqueeze(x, attrs);
     let expected = ArrayD::<usize>::from_shape_vec(IxDyn(&[1]), vec![64]).unwrap();
@@ -266,13 +266,19 @@ fn test_gemm() {
        C -> (4)
        Y -> (2, 4)
     */
-    let a: ArrayD<f32> = arr2(&[[2.0, 3.0, 4.0], [4.0, 5.0, 6.0]]).into_dimensionality::<IxDyn>().unwrap();
+    let a: ArrayD<f32> = arr2(&[[2.0, 3.0, 4.0], [4.0, 5.0, 6.0]])
+        .into_dimensionality::<IxDyn>()
+        .unwrap();
     let b: ArrayD<f32> = arr2(&[
         [0.1, 1.0, 10.0, 100.0],
         [0.2, 2.0, 20.0, 200.0],
         [0.3, 3.0, 30.0, 300.0],
-    ]).into_dimensionality::<IxDyn>().unwrap();
-    let c: ArrayD<f32> = arr2(&[[0.5, -0.5, 0.5, -0.5]]).into_dimensionality::<IxDyn>().unwrap();
+    ])
+    .into_dimensionality::<IxDyn>()
+    .unwrap();
+    let c: ArrayD<f32> = arr2(&[[0.5, -0.5, 0.5, -0.5]])
+        .into_dimensionality::<IxDyn>()
+        .unwrap();
     let attrs = GemmAttributes::new(2.0, 0.1, 0, 0);
     let y_shape = [2, 4];
     let y = load2d("tests/tensors/gemm/y.npy", y_shape);
