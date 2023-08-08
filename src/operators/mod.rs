@@ -38,8 +38,10 @@ pub enum OperationError {
     WrongDim(usize, usize),
     #[error("input tensor shapes are supposed to match but they don't: `{0}` != `{1}`")]
     UnmatchingShape(String, String),
-    #[error("the specified operators are not supported")]
-    UnsupportedOperators,
+    #[error("the specified operator(s) are not supported")]
+    UnsupportedOperator,
+    #[error("the specified operator(s) are not valid")]
+    InvalidOperator,
     #[error("unknwon operation error")]
     Unknown,
 }

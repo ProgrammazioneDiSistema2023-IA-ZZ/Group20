@@ -1,4 +1,4 @@
-use ndarray::{arr2, ArrayD, IxDyn, Ix1};
+use ndarray::{arr2, ArrayD, Ix1, IxDyn};
 use npy::NpyData;
 use onnx_runtime::operators::*;
 use std::fs::File;
@@ -149,7 +149,9 @@ fn test_convolution_complete_bias() {
     let b_shape = [8];
     let x = load("tests/tensors/convolution/complete_bias/x.npy", &x_shape);
     let w = load("tests/tensors/convolution/complete_bias/w.npy", &w_shape);
-    let b = load("tests/tensors/convolution/complete_bias/b.npy", &b_shape).into_dimensionality::<Ix1>().unwrap();
+    let b = load("tests/tensors/convolution/complete_bias/b.npy", &b_shape)
+        .into_dimensionality::<Ix1>()
+        .unwrap();
     let y = load("tests/tensors/convolution/complete_bias/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
     let my_y = conv(x, w, Some(b), attrs).unwrap();
@@ -197,7 +199,7 @@ fn test_shape() {
 fn test_gather() {
     let x = ArrayD::from_shape_vec(IxDyn(&[4]), vec![64, 32, 5, 5]).unwrap();
     let attrs = GatherAttributes::new(0);
-    let gathered = gather(x, 0, attrs);
+    let gathered = gather(x, 0, attrs).unwrap();
     let expected = ArrayD::from_shape_fn(IxDyn(&[]), |_| 64);
     assert_eq!(gathered, expected);
 }
@@ -206,7 +208,7 @@ fn test_gather() {
 fn test_unqueeze() {
     let x = ArrayD::from_shape_fn(IxDyn(&[]), |_| 64);
     let attrs = UnsqueezeAttributes::new(0);
-    let unsqueezed = unsqueeze(x, attrs);
+    let unsqueezed = unsqueeze(x, attrs).unwrap();
     let expected = ArrayD::<usize>::from_shape_vec(IxDyn(&[1]), vec![64]).unwrap();
     assert_eq!(unsqueezed, expected);
 }
@@ -216,7 +218,7 @@ fn test_concat() {
     let x1 = ArrayD::from_shape_vec(IxDyn(&[1]), vec![64]).unwrap();
     let x2 = ArrayD::from_shape_vec(IxDyn(&[1]), vec![-1]).unwrap();
     let attrs = ConcatAttributes::new(0);
-    let concated = concat(vec![x1, x2], attrs);
+    let concated = concat(vec![x1, x2], attrs).unwrap();
     let expected = ArrayD::<i64>::from_shape_vec(IxDyn(&[2]), vec![64, -1]).unwrap();
     assert_eq!(concated, expected);
 }
@@ -227,7 +229,7 @@ fn test_global_average_pool() {
     let y_shape = [8, 4, 1, 1];
     let x = load("tests/tensors/glob_avg_pool/x.npy", &x_shape);
     let y = load("tests/tensors/glob_avg_pool/y.npy", &y_shape);
-    let my_y = global_average_pool(x);
+    let my_y = global_average_pool(x).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -240,7 +242,7 @@ fn test_reshape() {
     let shape = ArrayD::from_shape_vec(IxDyn(&[2]), vec![8, -1]).unwrap();
     let x = load("tests/tensors/reshape/x.npy", &x_shape);
     let y = load("tests/tensors/reshape/y.npy", &y_shape);
-    let my_y = reshape(x, shape);
+    let my_y = reshape(x, shape).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -270,7 +272,7 @@ fn test_gemm() {
     let attrs = GemmAttributes::new(2.0, 0.1, 0, 0);
     let y_shape = [2, 4];
     let y = load("tests/tensors/gemm/y.npy", &y_shape);
-    let my_y = gemm(a, b, c, attrs);
+    let my_y = gemm(a, b, c, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -293,7 +295,7 @@ fn test_batchnorm_small() {
     let y: ArrayD<f32> = load("tests/tensors/bn/small/y.npy", &shape_y);
     let attrs = BatchNormAttributes::new(1e-5, 0.9, 1);
 
-    let my_y = batch_norm(x, scale, b, mean, var, attrs);
+    let my_y = batch_norm(x, scale, b, mean, var, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -316,7 +318,7 @@ fn test_batchnorm_normal() {
     let y: ArrayD<f32> = load("tests/tensors/bn/normal/y.npy", &shape_y);
     let attrs = BatchNormAttributes::new(1e-5, 0.9, 1);
 
-    let my_y = batch_norm(x, scale, b, mean, var, attrs);
+    let my_y = batch_norm(x, scale, b, mean, var, attrs).unwrap();
 
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);

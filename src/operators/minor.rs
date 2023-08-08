@@ -26,12 +26,15 @@ pub fn add(x: ArrayD<f32>, y: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError
     if x.shape() == y.shape() {
         Ok(x.add(y))
     } else {
-        Err(OperationError::UnmatchingShape(format!("{:?}", x.shape()), format!("{:?}", y.shape())))
+        Err(OperationError::UnmatchingShape(
+            format!("{:?}", x.shape()),
+            format!("{:?}", y.shape()),
+        ))
     }
 }
 
 pub fn shape(x: ArrayD<f32>) -> ArrayD<usize> {
-    ArrayD::<usize>::from_shape_vec(IxDyn(&[x.shape().len()]), x.shape().to_vec()).unwrap()
+    ArrayD::<usize>::from_shape_vec(IxDyn(&[x.ndim()]), x.shape().to_vec()).unwrap()
 }
 
 #[derive(Default)]
@@ -45,48 +48,83 @@ impl GatherAttributes {
     }
 }
 
-pub fn gather(x: ArrayD<usize>, index: usize, attrs: GatherAttributes) -> ArrayD<usize> {
+pub fn gather(
+    x: ArrayD<usize>,
+    index: usize,
+    attrs: GatherAttributes,
+) -> Result<ArrayD<usize>, OperationError> {
     assert!(attrs.axes == 0); // this is the only use case we are interested in
-    ArrayD::<usize>::from_shape_fn(IxDyn(&[]), |_| x[[index]])
+    if attrs.axes != 0 {
+        Err(OperationError::UnsupportedOperator)
+    } else if x.ndim() != 1 {
+        Err(OperationError::WrongDim(1, x.ndim()))
+    } else if index >= x.shape()[0] {
+        Err(OperationError::InvalidOperator)
+    } else {
+        Ok(ArrayD::<usize>::from_shape_fn(IxDyn(&[]), |_| x[[index]]))
+    }
 }
 
 pub type UnsqueezeAttributes = GatherAttributes;
 
-pub fn unsqueeze(x: ArrayD<usize>, attrs: UnsqueezeAttributes) -> ArrayD<usize> {
-    assert!(attrs.axes == 0); // this is the only use case we are interested in
-    ArrayD::<usize>::from_shape_vec(
-        IxDyn(&[1]),
-        vec![x.into_dimensionality::<Ix0>().unwrap().into_scalar()],
-    )
-    .expect("Unsqueeze failed")
+pub fn unsqueeze(
+    x: ArrayD<usize>,
+    attrs: UnsqueezeAttributes,
+) -> Result<ArrayD<usize>, OperationError> {
+    if attrs.axes != 0 {
+        Err(OperationError::UnsupportedOperator)
+    } else if x.ndim() != 0 {
+        Err(OperationError::WrongDim(0, x.ndim()))
+    } else {
+        Ok(ArrayD::<usize>::from_shape_vec(
+            IxDyn(&[1]),
+            vec![x.into_dimensionality::<Ix0>().unwrap().into_scalar()],
+        )
+        .expect("Unsqueeze failed"))
+    }
 }
 
 pub type ConcatAttributes = GatherAttributes;
 
-pub fn concat(x: Vec<ArrayD<i64>>, attrs: ConcatAttributes) -> ArrayD<i64> {
-    assert!(!x.is_empty());
-    assert!(attrs.axes == 0); // this is the only use case we are interested in
-    ArrayD::from_shape_fn(IxDyn(&[x.len()]), |i| x[i[0]][[0]])
+pub fn concat(x: Vec<ArrayD<i64>>, attrs: ConcatAttributes) -> Result<ArrayD<i64>, OperationError> {
+    if attrs.axes != 0 {
+        Err(OperationError::UnsupportedOperator)
+    } else if x.is_empty() {
+        Err(OperationError::InvalidOperator)
+    } else {
+        Ok(ArrayD::from_shape_fn(IxDyn(&[x.len()]), |i| x[i[0]][[0]]))
+    }
 }
 
-pub fn global_average_pool(x: ArrayD<f32>) -> ArrayD<f32> {
-    let [batch_size, channels, height, width] = *x.shape() else {todo!("Failed global average pool")};
-    ArrayD::from_shape_fn(IxDyn(&[batch_size, channels, 1, 1]), |idx| {
-        let mut accumulator = 0.0;
-        for i in 0..height {
-            for j in 0..width {
-                accumulator += x[[idx[0], idx[1], i, j]];
+pub fn global_average_pool(x: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError> {
+    let [batch_size, channels, height, width] = *x.shape() else {
+        return Err(OperationError::WrongDim(4, x.ndim()));
+    };
+    Ok(ArrayD::from_shape_fn(
+        IxDyn(&[batch_size, channels, 1, 1]),
+        |idx| {
+            let mut accumulator = 0.0;
+            for i in 0..height {
+                for j in 0..width {
+                    accumulator += x[[idx[0], idx[1], i, j]];
+                }
             }
-        }
-        accumulator / (height * width) as f32
-    })
+            accumulator / (height * width) as f32
+        },
+    ))
 }
 
-pub fn reshape(x: ArrayD<f32>, shape: ArrayD<i64>) -> ArrayD<f32> {
+pub fn reshape(x: ArrayD<f32>, shape: ArrayD<i64>) -> Result<ArrayD<f32>, OperationError> {
+    if shape.len() != 2 {
+        return Err(OperationError::WrongShape(
+            "[2]".to_string(),
+            format!("[{}]", shape.len()),
+        ));
+    }
     let mut myshape: [usize; 2] = [0, 0];
     let xshape = x.shape();
     for i in 0..shape.len() {
-        if myshape[i] == 0 {
+        if shape[i] == 0 {
             myshape[i] = xshape[i];
         } else if shape[i] == -1 {
             myshape[i] = xshape[i..].iter().product::<usize>();
@@ -94,7 +132,11 @@ pub fn reshape(x: ArrayD<f32>, shape: ArrayD<i64>) -> ArrayD<f32> {
             myshape[i] = shape[i] as usize;
         }
     }
-    x.into_shape(IxDyn(&myshape)).unwrap()
+    if xshape.iter().product::<usize>() != myshape.iter().product::<usize>() {
+        Err(OperationError::InvalidOperator)
+    } else {
+        Ok(x.into_shape(IxDyn(&myshape)).unwrap())
+    }
 }
 
 pub struct GemmAttributes {
@@ -115,13 +157,28 @@ impl GemmAttributes {
     }
 }
 
-pub fn gemm(a: ArrayD<f32>, b: ArrayD<f32>, c: ArrayD<f32>, attrs: GemmAttributes) -> ArrayD<f32> {
+pub fn gemm(
+    a: ArrayD<f32>,
+    b: ArrayD<f32>,
+    c: ArrayD<f32>,
+    attrs: GemmAttributes,
+) -> Result<ArrayD<f32>, OperationError> {
     let GemmAttributes {
         alpha,
         beta,
         trans_a,
         trans_b,
     } = attrs;
+    if a.ndim() != 2 {
+        return Err(OperationError::WrongDim(2, a.ndim()));
+    }
+    if b.ndim() != 2 {
+        return Err(OperationError::WrongDim(2, b.ndim()));
+    }
+    if c.ndim() != 2 {
+        return Err(OperationError::WrongDim(2, c.ndim()));
+    }
+
     let act_a = if trans_a == 0 {
         a.into_dimensionality::<Ix2>().unwrap()
     } else {
@@ -133,8 +190,19 @@ pub fn gemm(a: ArrayD<f32>, b: ArrayD<f32>, c: ArrayD<f32>, attrs: GemmAttribute
         b.into_dimensionality::<Ix2>().unwrap().t().to_owned()
     };
 
-    let ab = alpha * act_a.dot(&act_b);
-    ab + beta * c
+    if act_a.shape()[1] != act_b.shape()[0] {
+        return Err(OperationError::UnmatchingShape(
+            format!("[{}, *]", act_a.shape()[1]),
+            format!("[{}, *]", act_b.shape()[0]),
+        ));
+    }
+    if act_b.shape()[1] != c.shape()[1] {
+        return Err(OperationError::UnmatchingShape(
+            format!("[*, {}]", act_b.shape()[1]),
+            format!("[*, {}]", c.shape()[1]),
+        ));
+    }
+    Ok(alpha * act_a.dot(&act_b) + beta * c)
 }
 
 #[allow(dead_code)]
@@ -161,32 +229,48 @@ pub fn batch_norm(
     mean: ArrayD<f32>,
     var: ArrayD<f32>,
     attrs: BatchNormAttributes,
-) -> ArrayD<f32> {
+) -> Result<ArrayD<f32>, OperationError> {
+    // checks
+    let dims = vec![
+        (1, scale.ndim()),
+        (1, b.ndim()),
+        (1, mean.ndim()),
+        (1, var.ndim()),
+        (4, x.ndim()),
+    ];
+    for dim in dims {
+        if dim.0 != dim.1 {
+            return Err(OperationError::WrongDim(dim.0, dim.1));
+        }
+    }
+    let dims = vec![
+        scale.shape()[0],
+        b.shape()[0],
+        mean.shape()[0],
+        var.shape()[0],
+    ];
+    for dim in dims {
+        if x.shape()[1] != dim {
+            return Err(OperationError::WrongShape(
+                format!("[{}]", x.shape()[1]),
+                format!("[{}]", dim),
+            ));
+        }
+    }
+
     let BatchNormAttributes {
         epsilon,
         momentum: _,
         spatial,
     } = attrs;
     assert!(spatial != 0); // this is the only use case we are interested in
-    let mean = mean
-        .to_shape(IxDyn(&[1, x.shape()[1], 1, 1]))
-        .unwrap()
-        .to_owned();
-    let b = b
-        .to_shape(IxDyn(&[1, x.shape()[1], 1, 1]))
-        .unwrap()
-        .to_owned();
-    let scale = scale
-        .to_shape(IxDyn(&[1, x.shape()[1], 1, 1]))
-        .unwrap()
-        .to_owned();
-    let var = var
-        .to_shape(IxDyn(&[1, x.shape()[1], 1, 1]))
-        .unwrap()
-        .to_owned();
+    let mean = mean.into_shape(IxDyn(&[1, x.shape()[1], 1, 1])).unwrap();
+    let b = b.into_shape(IxDyn(&[1, x.shape()[1], 1, 1])).unwrap();
+    let scale = scale.into_shape(IxDyn(&[1, x.shape()[1], 1, 1])).unwrap();
+    let var = var.into_shape(IxDyn(&[1, x.shape()[1], 1, 1])).unwrap();
 
     let x_normalized = (x - mean) / (var + epsilon).mapv(|v| v.sqrt());
-    scale * x_normalized + b
+    Ok(scale * x_normalized + b)
 }
 
 pub fn relu(x: ArrayD<f32>) -> ArrayD<f32> {
