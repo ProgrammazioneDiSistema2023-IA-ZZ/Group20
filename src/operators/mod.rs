@@ -36,6 +36,10 @@ pub enum OperationError {
     WrongShape(String, String),
     #[error("wrong tensor dimensionality: expected `{0}`, found `{1}`")]
     WrongDim(usize, usize),
+    #[error("input tensor shapes are supposed to match but they don't: `{0}` != `{1}`")]
+    UnmatchingShape(String, String),
+    #[error("the specified operators are not supported")]
+    UnsupportedOperators,
     #[error("unknwon operation error")]
     Unknown,
 }

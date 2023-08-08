@@ -1,6 +1,8 @@
 use ndarray::{ArrayD, Ix0, Ix2, IxDyn};
 use std::ops::Add;
 
+use super::OperationError;
+
 pub struct ClipAttributes {
     min: f32,
     max: f32,
@@ -20,8 +22,12 @@ pub fn clip(x: ArrayD<f32>, attrs: ClipAttributes) -> ArrayD<f32> {
     x.mapv(|x| x.max(min_v).min(max_v))
 }
 
-pub fn add(x: ArrayD<f32>, y: ArrayD<f32>) -> ArrayD<f32> {
-    x.add(y)
+pub fn add(x: ArrayD<f32>, y: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError> {
+    if x.shape() == y.shape() {
+        Ok(x.add(y))
+    } else {
+        Err(OperationError::UnmatchingShape(format!("{:?}", x.shape()), format!("{:?}", y.shape())))
+    }
 }
 
 pub fn shape(x: ArrayD<f32>) -> ArrayD<usize> {

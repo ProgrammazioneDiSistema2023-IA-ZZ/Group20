@@ -179,7 +179,7 @@ fn test_add() {
     let x = load("tests/tensors/add/x.npy", &x_shape);
     let y = load("tests/tensors/add/y.npy", &y_shape);
     let z = load("tests/tensors/add/z.npy", &z_shape);
-    let my_z = add(x, y);
+    let my_z = add(x, y).unwrap();
     let err = z.sub(my_z).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
