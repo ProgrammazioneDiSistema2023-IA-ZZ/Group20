@@ -1,9 +1,9 @@
 ///
-/// # Operators
+/// # Operator
 ///
-/// This module define the ONNX operators structures.
+/// This module define the ONNX Operator structures.
 ///
-/// Currently it only defines the subset of operators used to execute the selected neural networks
+/// Currently it only defines the subset of Operator used to execute the selected neural networks
 ///
 mod convolution;
 mod minor;
@@ -11,29 +11,43 @@ mod minor;
 pub use convolution::*;
 pub use minor::*;
 
-use ndarray::{Array0, Array1, Array2, Array4};
-
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub enum Operator {
-    Convolution(ConvAttributes),
+    None,
+    Convolution(ConvInputs, ConvAttributes),
     Clip(ClipAttributes),
     Add,
     Shape,
-    Gather(GatherAttributes),
+    Gather(GatherInputs, GatherAttributes),
     Unsqueeze(UnsqueezeAttributes),
     Concat(ConcatAttributes),
     GlobalAveragePool,
-    Reshape,
-    Gemm(GemmAttributes),
+    Reshape(ReshapeInputs),
+    Gemm(GemmInputs, GemmAttributes),
     MaxPool(MaxPoolAttributes),
-    BatchNorm(BatchNormAttributes),
+    BatchNorm(BatchNormInputs, BatchNormAttributes),
     ReLU,
 }
 
-pub enum Tensor{
-    Array0Float32(Array0<f32>),
-    Array1Float32(Array1<f32>),
-    Array2Float32(Array2<f32>),
-    Array4Float32(Array4<f32>),
-}
 
+impl Operator {
+    pub fn name(&self) -> String {
+        match self {
+            Operator::Convolution(_, _) => "Convolution".to_string(),
+            Operator::Clip(_) => "Clip".to_string(),
+            Operator::Add => "Add".to_string(),
+            Operator::Shape => "Shape".to_string(),
+            Operator::Gather(_, _) => "Gather".to_string(),
+            Operator::Unsqueeze(_) => "Unsqueeze".to_string(),
+            Operator::Concat(_) => "Concat".to_string(),
+            Operator::GlobalAveragePool => "GlobalAveragePool".to_string(),
+            Operator::Reshape(_) => "Reshape".to_string(),
+            Operator::Gemm(_, _) => "Gemm".to_string(),
+            Operator::MaxPool(_) => "MaxPool".to_string(),
+            Operator::BatchNorm(_, _) => "BatchNorm".to_string(),
+            Operator::ReLU => "ReLU".to_string(),
+            _ => "None".to_string(),
+        }
+    }
+}
