@@ -1,6 +1,9 @@
 use ndarray::{Array0, Array1, Array2, Array4};
 use std::ops::Add;
 
+use crate::tensor::TensorData;
+
+#[derive(Debug, Clone)]
 pub struct ClipAttributes {
     min: f32,
     max: f32,
@@ -28,7 +31,21 @@ pub fn shape(x: Array4<f32>) -> Array1<usize> {
     Array1::<usize>::from_vec(x.shape().to_vec())
 }
 
-#[derive(Default)]
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct GatherInputs {
+    index: TensorData,
+}
+
+impl GatherInputs {
+    pub fn new(index: TensorData) -> Self {
+        Self {
+            index,
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
 pub struct GatherAttributes {
     axes: usize,
 }
@@ -73,6 +90,21 @@ pub fn global_average_pool(x: Array4<f32>) -> Array4<f32> {
     })
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct ReshapeInputs {
+    shape: TensorData,
+}
+
+impl ReshapeInputs {
+    pub fn new(shape: TensorData) -> Self {
+        Self {
+            shape,
+
+        }
+    }
+}
+
 pub fn reshape(x: Array4<f32>, shape: Array1<i64>) -> Array2<f32> {
     let mut myshape: [usize; 2] = [0, 0];
     let xshape = x.shape();
@@ -88,6 +120,23 @@ pub fn reshape(x: Array4<f32>, shape: Array1<i64>) -> Array2<f32> {
     x.into_shape(myshape).unwrap()
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct GemmInputs {
+    b: TensorData,
+    c: TensorData,
+}
+
+impl GemmInputs {
+    pub fn new(b: TensorData, c: TensorData) -> Self {
+        Self {
+            b,
+            c,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct GemmAttributes {
     alpha: f32,
     beta: f32,
@@ -120,6 +169,27 @@ pub fn gemm(a: Array2<f32>, b: Array2<f32>, c: Array2<f32>, attrs: GemmAttribute
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct BatchNormInputs {
+    scale: TensorData,
+    b: TensorData,
+    mean: TensorData,
+    var: TensorData,
+}
+
+impl BatchNormInputs {
+    pub fn new(scale: TensorData, b: TensorData, mean: TensorData, var: TensorData ) -> Self {
+        Self {
+            scale,
+            b,
+            mean,
+            var
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct BatchNormAttributes {
     epsilon: f32,
     momentum: f32, // not used during inference
