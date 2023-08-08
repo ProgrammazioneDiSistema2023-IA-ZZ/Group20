@@ -1,4 +1,6 @@
-use ndarray::{ArrayD, IxDyn};
+use ndarray::{Array1, ArrayD, IxDyn};
+
+use super::OperationError;
 
 pub struct ConvAttributes {
     // assuming 4D tensors
@@ -10,13 +12,36 @@ pub struct ConvAttributes {
 }
 
 pub fn conv(
-    input: ArrayD<f32>,
+    x: ArrayD<f32>,
     weights: ArrayD<f32>,
-    bias: Option<ArrayD<f32>>,
-    attributes: ConvAttributes,
-) -> ArrayD<f32> {
-    let [batch_size, in_chans, height, width] = *input.shape() else {todo!("conv2d: invalid input tensor shape")};
+    bias: Option<Array1<f32>>,
+    attrs: ConvAttributes,
+) -> Result<ArrayD<f32>, OperationError> {
+    // checks
+    let [batch_size, in_chans, height, width] = *x.shape() else {
+        return Err(OperationError::WrongDim(4, x.shape().len()));
+    };
+    if weights.shape().len() != 4 {
+        return Err(OperationError::WrongDim(4, weights.shape().len()));
+    }
+    if weights.shape()[2..] != attrs.kernel_shape {
+        return Err(OperationError::WrongShape(
+            format!(
+                "[*, *, {}, {}]",
+                attrs.kernel_shape[0], attrs.kernel_shape[1]
+            ),
+            format!("[*, *, {}, {}]", weights.shape()[2], weights.shape()[3]),
+        ));
+    }
     let n_featmaps = weights.shape()[0];
+    let bias = bias.unwrap_or(Array1::from_vec(vec![0.0; n_featmaps]));
+    if bias.shape()[0] != n_featmaps {
+        return Err(OperationError::WrongShape(
+            format!("[{}]", n_featmaps),
+            format!("[{}]", bias.shape()[0]),
+        ));
+    }
+
     let ConvAttributes {
         // w = width, h = height; s = start, e = end
         dilations: [dilat_h, dilat_w],
@@ -24,7 +49,7 @@ pub fn conv(
         kernel_shape: [kern_h, kern_w],
         pads: [pad_hs, pad_ws, pad_he, pad_we],
         strides: [stride_h, stride_w],
-    } = attributes;
+    } = attrs;
     let output_group_size = n_featmaps / n_groups;
     let input_group_size = in_chans / n_groups;
     let out_height = 1 + ((height + pad_hs + pad_he) - (dilat_h * (kern_h - 1) + 1)) / stride_h;
@@ -43,7 +68,6 @@ pub fn conv(
 
     // result tensor
     let mut output: ArrayD<f32> = ArrayD::<f32>::from_elem(IxDyn(&out_shape), 0.0);
-    let bias = bias.unwrap_or(ArrayD::from_shape_fn(IxDyn(&[n_featmaps]), |_| 0.0));
 
     for batch in 0..batch_size {
         for featmap in 0..n_featmaps {
@@ -75,7 +99,7 @@ pub fn conv(
                             // iterate also along all channels and increment accumulator
                             for channel in group_s..group_e {
                                 let group_channel = channel % input_group_size;
-                                accumulator += input
+                                accumulator += x
                                     [[batch, channel, input_row as usize, input_col as usize]]
                                     * weights[[featmap, group_channel, kern_row, kern_col]];
                             }
@@ -89,7 +113,7 @@ pub fn conv(
             }
         }
     }
-    output
+    Ok(output)
 }
 
 impl ConvAttributes {
@@ -138,13 +162,16 @@ impl MaxPoolAttributes {
     }
 }
 
-pub fn max_pool(x: ArrayD<f32>, attrs: MaxPoolAttributes) -> ArrayD<f32> {
+pub fn max_pool(x: ArrayD<f32>, attrs: MaxPoolAttributes) -> Result<ArrayD<f32>, OperationError> {
+    // checks
+    let [batch_size, in_chans, height, width] = *x.shape() else {
+        return Err(OperationError::WrongDim(4, x.shape().len()));
+    };
     let MaxPoolAttributes {
         kernel_shape: [kern_h, kern_w],
         pads: [pad_hs, pad_ws, pad_he, pad_we],
         strides: [stride_h, stride_w],
     } = attrs;
-    let [batch_size, in_chans, height, width] = *x.shape() else {todo!("Error in max_pool")};
     let out_height = 1 + ((height + pad_hs + pad_he) - kern_h) / stride_h;
     let out_width = 1 + ((width + pad_ws + pad_we) - kern_w) / stride_w;
     let out_shape = [batch_size, in_chans, out_height, out_width];
@@ -184,5 +211,5 @@ pub fn max_pool(x: ArrayD<f32>, attrs: MaxPoolAttributes) -> ArrayD<f32> {
             }
         }
     }
-    output
+    Ok(output)
 }

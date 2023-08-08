@@ -1,4 +1,4 @@
-use ndarray::{arr2, ArrayD, IxDyn};
+use ndarray::{arr2, ArrayD, IxDyn, Ix1};
 use npy::NpyData;
 use onnx_runtime::operators::*;
 use std::fs::File;
@@ -21,7 +21,7 @@ fn test_convolution_basic() {
     let w = load("tests/tensors/convolution/basic/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/basic/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = conv(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -36,7 +36,7 @@ fn test_convolution_stride2() {
     let w = load("tests/tensors/convolution/stride2/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/stride2/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [0, 0, 0, 0], [2, 2]);
-    let my_y = conv(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -51,7 +51,7 @@ fn test_convolution_pad1() {
     let w = load("tests/tensors/convolution/pad1/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/pad1/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = conv(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -66,7 +66,7 @@ fn test_convolution_dil2() {
     let w = load("tests/tensors/convolution/dil2/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/dil2/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = conv(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -81,7 +81,7 @@ fn test_convolution_dil2big() {
     let w = load("tests/tensors/convolution/dil2big/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/dil2big/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = conv(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -96,7 +96,7 @@ fn test_convolution_dil2big_stride2() {
     let w = load("tests/tensors/convolution/dil2big_stride2/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/dil2big_stride2/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [2, 2]);
-    let my_y = conv(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -120,7 +120,7 @@ fn test_convolution_dil2big_stride2_pad2() {
         &y_shape,
     );
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = conv(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", &err);
     assert!(err < 1e-5);
@@ -135,7 +135,7 @@ fn test_convolution_complete() {
     let w = load("tests/tensors/convolution/complete/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/complete/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = conv(x, w, None, attrs);
+    let my_y = conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -149,10 +149,10 @@ fn test_convolution_complete_bias() {
     let b_shape = [8];
     let x = load("tests/tensors/convolution/complete_bias/x.npy", &x_shape);
     let w = load("tests/tensors/convolution/complete_bias/w.npy", &w_shape);
-    let b = load("tests/tensors/convolution/complete_bias/b.npy", &b_shape);
+    let b = load("tests/tensors/convolution/complete_bias/b.npy", &b_shape).into_dimensionality::<Ix1>().unwrap();
     let y = load("tests/tensors/convolution/complete_bias/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = conv(x, w, Some(b), attrs);
+    let my_y = conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -342,7 +342,7 @@ fn test_max_pool() {
     let x: ArrayD<f32> = load("tests/tensors/maxpool/x.npy", &shape_x);
     let y: ArrayD<f32> = load("tests/tensors/maxpool/y.npy", &shape_y);
     let attrs = MaxPoolAttributes::new([3, 3], [1, 1, 1, 1], [2, 2]);
-    let my_y = max_pool(x, attrs);
+    let my_y = max_pool(x, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
