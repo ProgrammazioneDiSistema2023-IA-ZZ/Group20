@@ -16,7 +16,7 @@ pub type TensorParametrizedShape = Vec<GraphDimension>;
 /// Enum representing the different types of tensors in ONNX.
 ///
 /// ONNX uses different types of tensors according to what the tensor is used for:
-/// - **statically sized**: have a known shape prior to the model execution and known contant values prior to execution.
+/// - **statically sized**: have a known shape prior to the model execution and known constant values prior to execution.
 /// These are used for attributes and initializers tensors.
 /// We'll refer to them as **constant tensors**.
 /// - **graph input/output tensors**: *partially* know its shape and have an unknown data type prior to execution. Its values are fed or fetched during execution.
