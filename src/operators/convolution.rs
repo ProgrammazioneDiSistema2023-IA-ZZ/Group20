@@ -35,6 +35,12 @@ pub fn conv(
     let act_kern_h = (dilat_h * (kern_h - 1) + 1) as i64;
     let act_kern_w = (dilat_w * (kern_w - 1) + 1) as i64;
 
+    // declaration of tensor bounds considering padding
+    let tens_hs: i64 = 0_i64 - (pad_hs as i64);
+    let tens_ws: i64 = 0_i64 - (pad_ws as i64);
+    let tens_he: i64 = (height + pad_he) as i64 - act_kern_h + 1; // subtracting kernel size to consider valid windows only
+    let tens_we: i64 = (width + pad_we) as i64 - act_kern_w + 1;
+
     // result tensor
     let mut output: ArrayD<f32> = ArrayD::<f32>::from_elem(IxDyn(&out_shape), 0.0);
     let bias = bias.unwrap_or(ArrayD::from_shape_fn(IxDyn(&[n_featmaps]), |_| 0.0));
@@ -45,12 +51,6 @@ pub fn conv(
             let group: usize = featmap / output_group_size;
             let group_s = group * input_group_size;
             let group_e = group_s + input_group_size;
-
-            // declaration of tensor bounds considering padding
-            let tens_hs: i64 = 0_i64 - (pad_hs as i64);
-            let tens_ws: i64 = 0_i64 - (pad_ws as i64);
-            let tens_he: i64 = (height + pad_he) as i64 - act_kern_h + 1; // subtracting kernel size to consider valid windows only
-            let tens_we: i64 = (width + pad_we) as i64 - act_kern_w + 1;
 
             // iterate over the input tensor with the specified stride
             for ext_row in (tens_hs..tens_he).step_by(stride_h) {
@@ -149,16 +149,16 @@ pub fn max_pool(x: ArrayD<f32>, attrs: MaxPoolAttributes) -> ArrayD<f32> {
     let out_width = 1 + ((width + pad_ws + pad_we) - kern_w) / stride_w;
     let out_shape = [batch_size, in_chans, out_height, out_width];
 
+    // declaration of tensor bounds considering padding
+    let tens_hs: i64 = 0i64 - (pad_hs as i64);
+    let tens_ws: i64 = 0i64 - (pad_ws as i64);
+    let tens_he: i64 = ((height + pad_he) - kern_h + 1) as i64; // subtracting kernel size to consider valid windows only
+    let tens_we: i64 = ((width + pad_we) - kern_w + 1) as i64;
+
     // result tensor
     let mut output: ArrayD<f32> = ArrayD::<f32>::from_elem(IxDyn(&out_shape), 0.0);
     for batch in 0..batch_size {
         for channel in 0..in_chans {
-            // declaration of tensor bounds considering padding
-            let tens_hs: i64 = 0i64 - (pad_hs as i64);
-            let tens_ws: i64 = 0i64 - (pad_ws as i64);
-            let tens_he: i64 = ((height + pad_he) - kern_h + 1) as i64; // subtracting kernel size to consider valid windows only
-            let tens_we: i64 = ((width + pad_we) - kern_w + 1) as i64;
-
             // iterate over the input tensor with the specified stride
             for ext_row in (tens_hs..tens_he).step_by(stride_h) {
                 for ext_col in (tens_ws..tens_we).step_by(stride_w) {
