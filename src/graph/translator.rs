@@ -1,59 +1,30 @@
 use crate::onnx_format;
-use crate::onnx_format::TensorProto;
-use crate::operators::{
-    BatchNormAttributes, BatchNormInputs, ClipAttributes, ConcatAttributes, ConvAttributes,
-    ConvInputs, GatherAttributes, GatherInputs, GemmAttributes, GemmInputs, MaxPoolAttributes,
-    Operator, ReshapeInputs, TensorData, UnsqueezeAttributes,
-};
+use crate::operators::*;
+
+use crate::tensor::{Tensor, TensorData};
 
 use core::panic;
+use petgraph::algo::toposort;
+use petgraph::graph::NodeIndex;
 use petgraph::Graph;
 use prost::Message;
+use std::collections::HashMap;
 use std::{fs::File, io::Read};
 
-//da rimuovere
+#[allow(dead_code)]
 #[derive(Debug)]
-pub struct Tensor {
-    pub name: String,
-    pub data: TensorData,
+struct NodeInfo {
+    parents_name: Vec<String>,
+    node_index: usize,
 }
-impl From<TensorProto> for Tensor {
-    fn from(proto: TensorProto) -> Self {
-        todo!();
+
+impl NodeInfo {
+    pub fn new(parents_name: Vec<String>, node_index: usize) -> Self {
+        Self {
+            parents_name,
+            node_index,
+        }
     }
-}
-
-#[test]
-fn print_parsed_model_test() {
-    let mut buffer = Vec::new();
-    // let mut file = File::open("tests/models/mobilenetv2-10.onnx").unwrap();
-    let mut file = File::open("tests/models/resnet18-v2-7.onnx").unwrap();
-    file.read_to_end(&mut buffer).unwrap();
-
-    let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
-    let initializer = parsed_model.unwrap().graph.unwrap().initializer;
-
-    // println!("\nlength of initializer: {}\n\n", initializer.len());
-
-    // for tensor in initializer{
-    //    println!("{:?}\n\n\n", tensor);
-    //    break;
-    // }
-
-    // println!("{:?}\n\n\n", initializer[0]);
-
-    // for node in parsed_model.unwrap().graph.unwrap().node{
-    //     println!("{:?}\n", node );
-    // }
-}
-
-fn get_parsed_model(path: &str) -> onnx_format::ModelProto {
-    let mut buffer = Vec::new();
-    let mut file = File::open(path).unwrap();
-    file.read_to_end(&mut buffer).unwrap();
-
-    let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
-    parsed_model.expect("Failed to unwrap parsed_model in get_parsed_model()")
 }
 
 pub fn create_graph() {
@@ -61,11 +32,18 @@ pub fn create_graph() {
     //let path_mobilenet = "tests/models/mobilenetv2-10.onnx";
 
     let parsed_model = get_parsed_model(path_resnet);
+
     let graph_proto = parsed_model
         .graph
         .expect("Failed to unwrap graph in create_graph()");
+
+    let graph_input = graph_proto.input;
+    let graph_output = graph_proto.output;
+
     let initializers = graph_proto.initializer;
     let nodes = graph_proto.node;
+
+    let mut map: HashMap<String, NodeInfo> = HashMap::new();
 
     let mut graph: Graph<Operator, Option<TensorData>> =
         Graph::<Operator, Option<TensorData>>::new();
@@ -76,10 +54,12 @@ pub fn create_graph() {
         let op_type = node
             .op_type
             .expect("Failed to unwrap node op_type in create_graph()");
-        let inputs = node.input;
+        let mut inputs = node.input;
+        let node_name = node.name.expect("Failed to recevor node name!");
+        let parents_name: Vec<String>;
 
         let operator: Operator = match op_type.as_str() {
-            "BatchNormalitazion" => {
+            "BatchNormalization" => {
                 let attrs = BatchNormAttributes::new(
                     node.attribute[0]
                         .f
@@ -95,10 +75,12 @@ pub fn create_graph() {
                 let mut vec = Vec::<TensorData>::new();
                 let inps;
 
+                parents_name = vec![inputs.remove(0)];
+
                 for inp in inputs {
                     let v = initializers
                         .iter()
-                        .find(|tp| *tp.name() == inp)
+                        .find(|tp| *tp.name().to_string() == inp)
                         .expect("Failed to filter initializers");
                     vec.push(Tensor::from(v.clone()).data);
                 }
@@ -141,6 +123,8 @@ pub fn create_graph() {
                 let mut vec = Vec::<TensorData>::new();
                 let inps;
 
+                parents_name = vec![inputs.remove(0)];
+
                 for inp in inputs {
                     let v = initializers
                         .iter()
@@ -159,7 +143,11 @@ pub fn create_graph() {
 
                 Operator::Convolution(inps, attrs)
             }
-            "Relu" => Operator::ReLU,
+            "Relu" => {
+                parents_name = vec![inputs.remove(0)];
+
+                Operator::ReLU
+            }
             "MaxPool" => {
                 let attrs: MaxPoolAttributes = MaxPoolAttributes::new(
                     [
@@ -178,13 +166,23 @@ pub fn create_graph() {
                     ],
                 );
 
+                parents_name = vec![inputs.remove(0)];
+
                 Operator::MaxPool(attrs)
             }
-            "Add" => Operator::Add,
-            "GlobalAveragePool" => Operator::GlobalAveragePool,
+            "Add" => {
+                parents_name = vec![inputs.remove(0), inputs.remove(0)];
+                Operator::Add
+            }
+            "GlobalAveragePool" => {
+                parents_name = vec![inputs.remove(0)];
+                Operator::GlobalAveragePool
+            }
             "Reshape" => {
                 let mut vec = Vec::<TensorData>::new();
                 let inps;
+
+                parents_name = vec![inputs.remove(0)];
 
                 for inp in inputs {
                     let v = initializers
@@ -221,6 +219,8 @@ pub fn create_graph() {
                 let mut vec = Vec::<TensorData>::new();
                 let inps;
 
+                parents_name = vec![inputs.remove(0)];
+
                 for inp in inputs {
                     let v = initializers
                         .iter()
@@ -247,9 +247,14 @@ pub fn create_graph() {
                         .expect("Failed to unwrap f in max attribute"),
                 );
 
+                parents_name = vec![inputs.remove(0)];
+
                 Operator::Clip(attrs)
             }
-            "Shape" => Operator::Shape,
+            "Shape" => {
+                parents_name = vec![inputs.remove(0)];
+                Operator::Shape
+            }
             "Gather" => {
                 let attrs: GatherAttributes = GatherAttributes::new(
                     node.attribute[0]
@@ -260,6 +265,8 @@ pub fn create_graph() {
 
                 let mut vec = Vec::<TensorData>::new();
                 let inps;
+
+                parents_name = vec![inputs.remove(0)];
 
                 for inp in inputs {
                     let v = initializers
@@ -281,6 +288,8 @@ pub fn create_graph() {
                 let attrs: UnsqueezeAttributes =
                     UnsqueezeAttributes::new(node.attribute[0].ints[0] as usize);
 
+                parents_name = vec![inputs.remove(0)];
+
                 Operator::Unsqueeze(attrs)
             }
             "Concat" => {
@@ -291,11 +300,63 @@ pub fn create_graph() {
                         as usize,
                 );
 
+                parents_name = inputs.clone();
+
                 Operator::Concat(attrs)
             }
             _ => panic!("No matched value for op_type"),
         };
 
         let n = graph.add_node(operator);
+        let ni = NodeInfo::new(parents_name, n.index());
+        map.insert(node_name, ni);
     }
+
+    for (_n_name, n_info) in map.iter() {
+        let parents = &n_info.parents_name;
+        let n_index = n_info.node_index;
+        for p_name in parents {
+            let p_index = map.get(p_name).expect("Parent not found").node_index;
+            graph.add_edge(NodeIndex::new(n_index), NodeIndex::new(p_index), None);
+        }
+    }
+
+    // let _toposort = toposort(&graph, None).unwrap().into_iter().rev().for_each(|n| {
+    //     println!("{:?}\n", graph[n].name());
+    // });
+}
+
+#[test]
+fn print_parsed_model_test() {
+    let mut buffer = Vec::new();
+    // let mut file = File::open("tests/models/mobilenetv2-10.onnx").unwrap();
+    let mut file = File::open("tests/models/resnet18-v2-7.onnx").unwrap();
+    file.read_to_end(&mut buffer).unwrap();
+
+    let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
+    let _initializer = parsed_model.unwrap().graph.unwrap().initializer;
+
+    // println!("\nlength of initializer: {}\n\n", initializer.len());
+
+    // for tensor in initializer{
+    //    println!("{:?}\n\n\n", tensor);
+    //    break;
+    // }
+
+    // println!("{:?}\n\n\n", initializer[0]);
+
+    // for node in parsed_model.unwrap().graph.unwrap().node{
+    //     println!("{:?}\n", node );
+    // }
+
+    create_graph();
+}
+
+fn get_parsed_model(path: &str) -> onnx_format::ModelProto {
+    let mut buffer = Vec::new();
+    let mut file = File::open(path).unwrap();
+    file.read_to_end(&mut buffer).unwrap();
+
+    let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
+    parsed_model.expect("Failed to unwrap parsed_model in get_parsed_model()")
 }
