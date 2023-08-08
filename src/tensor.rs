@@ -10,7 +10,7 @@ use num_traits::FromPrimitive;
 
 use crate::onnx_format::TensorProto;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Tensor {
     pub name: String,
     pub data: TensorData,
@@ -60,7 +60,7 @@ pub enum TensorDataType {
     /// Unsigned 64-bit int, equivalent to Rust's `u64`
     Uint64,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TensorData {
     Float(ArrayD<f32>),
     Uint8(ArrayD<u8>),
