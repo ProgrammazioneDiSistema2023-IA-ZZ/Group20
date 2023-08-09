@@ -87,18 +87,20 @@ pub fn conv(
 
                     // kern_row and kern_col used to access the kernel
                     let mut accumulator: f32 = bias[[featmap]];
+                    // iterate over all input channels
                     // iterate over the window defined by the kernel with the specified dilation
-                    for (kern_row, input_row) in (win_hs..win_he).step_by(dilat_h).enumerate() {
-                        if input_row < 0 || input_row >= height as i64 {
-                            continue;
-                        }
-                        for (kern_col, input_col) in (win_ws..win_we).step_by(dilat_w).enumerate() {
-                            if input_col < 0 || input_col >= width as i64 {
+                    for channel in group_s..group_e {
+                        let group_channel = channel % input_group_size;
+                        for (kern_row, input_row) in (win_hs..win_he).step_by(dilat_h).enumerate() {
+                            if input_row < 0 || input_row >= height as i64 {
                                 continue;
                             }
-                            // iterate also along all channels and increment accumulator
-                            for channel in group_s..group_e {
-                                let group_channel = channel % input_group_size;
+                            for (kern_col, input_col) in
+                                (win_ws..win_we).step_by(dilat_w).enumerate()
+                            {
+                                if input_col < 0 || input_col >= width as i64 {
+                                    continue;
+                                }
                                 accumulator += x
                                     [[batch, channel, input_row as usize, input_col as usize]]
                                     * weights[[featmap, group_channel, kern_row, kern_col]];
