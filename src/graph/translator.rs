@@ -3,13 +3,15 @@ use crate::operators::*;
 
 use crate::tensor::{Tensor, TensorData};
 
-use core::panic;
 use petgraph::algo::toposort;
 use petgraph::graph::NodeIndex;
+use petgraph::visit::GraphProp;
 use petgraph::Graph;
 use prost::Message;
 use std::collections::HashMap;
 use std::{fs::File, io::Read};
+
+use super::GraphError;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -27,50 +29,70 @@ impl NodeInfo {
     }
 }
 
-pub fn create_graph() {
+pub fn create_graph() -> Result<(), GraphError> {
     let path_resnet = "tests/models/resnet18-v2-7.onnx";
     //let path_mobilenet = "tests/models/mobilenetv2-10.onnx";
 
     let parsed_model = get_parsed_model(path_resnet);
 
-    let graph_proto = parsed_model
-        .graph
-        .expect("Failed to unwrap graph in create_graph()");
+    let graph_proto = match parsed_model.graph {
+        Some(g) => g,
+        None => {
+            return Err(GraphError::ConversionError(
+                "Unable to retrieve graph from parsed model".to_string(),
+            ))
+        }
+    };
 
     let graph_input = graph_proto.input;
-    let graph_output = graph_proto.output;
-
+    let _graph_output = graph_proto.output;
     let initializers = graph_proto.initializer;
     let nodes = graph_proto.node;
 
+    println!("graph_input:\n{:?}\n", graph_input[0]);
+
     let mut map: HashMap<String, NodeInfo> = HashMap::new();
 
-    let mut graph: Graph<Operator, Option<TensorData>> =
+    let mut new_graph: Graph<Operator, Option<TensorData>> =
         Graph::<Operator, Option<TensorData>>::new();
 
     for node in nodes {
         //let pg = deps.add_node("petgraph");
 
-        let op_type = node
-            .op_type
-            .expect("Failed to unwrap node op_type in create_graph()");
+        let op_type = match node.op_type {
+            Some(s) => s,
+            None => {
+                return Err(GraphError::ConversionError(
+                    "Unable to convert op_type".to_string(),
+                ))
+            }
+        };
         let mut inputs = node.input;
-        let node_name = node.name.expect("Failed to recevor node name!");
+        let node_name = match node.name {
+            Some(s) => s,
+            None => {
+                return Err(GraphError::ConversionError(
+                    "Unable to recover node name".to_string(),
+                ))
+            }
+        };
         let parents_name: Vec<String>;
 
         let operator: Operator = match op_type.as_str() {
             "BatchNormalization" => {
-                let attrs = BatchNormAttributes::new(
-                    node.attribute[0]
-                        .f
-                        .expect("Failed to unwrap f in epsilon attribute"),
-                    node.attribute[1]
-                        .f
-                        .expect("Failed to unwrap f in momentum attribute"),
-                    node.attribute[2]
-                        .i
-                        .expect("Failed to unwrap i in momentum attribute"),
-                );
+                let Some(epsilon) = node.attribute[0].f else{
+                    return Err(GraphError::MissingOperand { operand: String::from("epsilon"), operator: node_name, operator_type:String::from("BatchNormalization")})
+                };
+
+                let Some(momentum) = node.attribute[1].f else{
+                    return Err(GraphError::MissingOperand { operand: String::from("momentum"), operator: node_name, operator_type:String::from("BatchNormalization")})
+                };
+
+                let Some(spatial) = node.attribute[2].i else{
+                    return Err(GraphError::MissingOperand { operand: String::from("spatial"), operator: node_name, operator_type:String::from("BatchNormalization")})
+                };
+
+                let attrs = BatchNormAttributes::new(epsilon, momentum, spatial);
 
                 let mut vec = Vec::<TensorData>::new();
                 let inps;
@@ -78,10 +100,14 @@ pub fn create_graph() {
                 parents_name = vec![inputs.remove(0)];
 
                 for inp in inputs {
-                    let v = initializers
-                        .iter()
-                        .find(|tp| *tp.name().to_string() == inp)
-                        .expect("Failed to filter initializers");
+                    let v = match initializers.iter().find(|tp| *tp.name().to_string() == inp) {
+                        Some(t) => t,
+                        None => {
+                            return Err(GraphError::ConversionError(
+                                "Unable to filter initializers".to_string(),
+                            ))
+                        }
+                    };
                     vec.push(Tensor::from(v.clone()).data);
                 }
 
@@ -89,7 +115,9 @@ pub fn create_graph() {
                     inps =
                         BatchNormInputs::new(scale.clone(), b.clone(), mean.clone(), var.clone());
                 } else {
-                    panic!("inps uninitialized. Maybe initilizer is not defined");
+                    return Err(GraphError::DeconstructError(
+                        "Unable to retrieve inputs".to_string(),
+                    ));
                 }
 
                 Operator::BatchNorm(inps, attrs)
@@ -100,10 +128,14 @@ pub fn create_graph() {
                         node.attribute[0].ints[0] as usize,
                         node.attribute[0].ints[1] as usize,
                     ],
-                    node.attribute[1]
-                        .i
-                        .expect("Failed to unwrap i in group attribute")
-                        as usize,
+                    match node.attribute[1].i {
+                        Some(i) => i,
+                        None => {
+                            return Err(GraphError::ConversionError(
+                                "Unable to unwrap i in group attribute".to_string(),
+                            ))
+                        }
+                    } as usize,
                     [
                         node.attribute[2].ints[0] as usize,
                         node.attribute[2].ints[1] as usize,
@@ -126,10 +158,15 @@ pub fn create_graph() {
                 parents_name = vec![inputs.remove(0)];
 
                 for inp in inputs {
-                    let v = initializers
-                        .iter()
-                        .find(|tp| *tp.name() == inp)
-                        .expect("Failed to filter initializers");
+                    let v = match initializers.iter().find(|tp| *tp.name() == inp) {
+                        Some(t) => t,
+                        None => {
+                            return Err(GraphError::ConversionError(
+                                "Unable to filter initializers".to_string(),
+                            ))
+                        }
+                    };
+
                     vec.push(Tensor::from(v.clone()).data);
                 }
 
@@ -138,7 +175,9 @@ pub fn create_graph() {
                 } else if let [weights] = &vec[..] {
                     inps = ConvInputs::new(weights.clone(), None);
                 } else {
-                    panic!("inps uninitialized. Maybe initilizer is not defined");
+                    return Err(GraphError::DeconstructError(
+                        "Unable to retrieve inputs".to_string(),
+                    ));
                 }
 
                 Operator::Convolution(inps, attrs)
@@ -185,36 +224,45 @@ pub fn create_graph() {
                 parents_name = vec![inputs.remove(0)];
 
                 for inp in inputs {
-                    let v = initializers
-                        .iter()
-                        .find(|tp| *tp.name() == inp)
-                        .expect("Failed to filter initializers");
+                    let v = match initializers.iter().find(|tp| *tp.name() == inp) {
+                        Some(t) => t,
+                        None => {
+                            return Err(GraphError::ConversionError(
+                                "Unable to filter initializers".to_string(),
+                            ))
+                        }
+                    };
                     vec.push(Tensor::from(v.clone()).data);
                 }
 
                 if let [shape] = &vec[..] {
                     inps = ReshapeInputs::new(shape.clone());
                 } else {
-                    panic!("inps uninitialized. Maybe initilizer is not defined");
+                    return Err(GraphError::DeconstructError(
+                        "Unable to retrieve inputs".to_string(),
+                    ));
                 }
 
                 Operator::Reshape(inps)
             }
             "Gemm" => {
-                let attrs: GemmAttributes = GemmAttributes::new(
-                    node.attribute[0]
-                        .f
-                        .expect("Failed to unwrap f in alpha attribute"),
-                    node.attribute[1]
-                        .f
-                        .expect("Failed to unwrap f in beta attribute"),
-                    node.attribute[2]
-                        .i
-                        .expect("Failed to unwrap i in trans_a attribute"),
-                    node.attribute[3]
-                        .i
-                        .expect("Failed to unwrap i in trans_b attribute"),
-                );
+                let Some(alpha) = node.attribute[0].f else{
+                    return Err(GraphError::MissingOperand { operand: String::from("alpha"), operator: node_name, operator_type:String::from("Gemm")});
+                };
+
+                let Some(beta) = node.attribute[1].f else{
+                    return Err(GraphError::MissingOperand { operand: String::from("beta"), operator: node_name, operator_type:String::from("Gemm")});
+                };
+
+                let Some(trans_a) = node.attribute[2].i else{
+                    return Err(GraphError::MissingOperand { operand: String::from("trans_a"), operator: node_name, operator_type:String::from("Gemm")});
+                };
+
+                let Some(trans_b) = node.attribute[3].i else{
+                    return Err(GraphError::MissingOperand { operand: String::from("trans_b"), operator: node_name, operator_type:String::from("Gemm")});
+                };
+
+                let attrs: GemmAttributes = GemmAttributes::new(alpha, beta, trans_a, trans_b);
 
                 let mut vec = Vec::<TensorData>::new();
                 let inps;
@@ -222,30 +270,37 @@ pub fn create_graph() {
                 parents_name = vec![inputs.remove(0)];
 
                 for inp in inputs {
-                    let v = initializers
-                        .iter()
-                        .find(|tp| *tp.name() == inp)
-                        .expect("Failed to filter initializers");
+                    let v = match initializers.iter().find(|tp| *tp.name() == inp) {
+                        Some(t) => t,
+                        None => {
+                            return Err(GraphError::ConversionError(
+                                "Unable to filter initializers".to_string(),
+                            ))
+                        }
+                    };
                     vec.push(Tensor::from(v.clone()).data);
                 }
 
                 if let [b, c] = &vec[..] {
                     inps = GemmInputs::new(b.clone(), c.clone());
                 } else {
-                    panic!("inps uninitialized. Maybe initilizer is not defined");
+                    return Err(GraphError::DeconstructError(
+                        "Unable to retrieve inputs".to_string(),
+                    ));
                 }
 
                 Operator::Gemm(inps, attrs)
             }
             "Clip" => {
-                let attrs: ClipAttributes = ClipAttributes::new(
-                    node.attribute[1]
-                        .f
-                        .expect("Failed to unwrap f in min attribute"),
-                    node.attribute[0]
-                        .f
-                        .expect("Failed to unwrap f in max attribute"),
-                );
+                let Some(min) = node.attribute[1].f else{
+                    return Err(GraphError::MissingOperand { operand: String::from("min"), operator: node_name, operator_type:String::from("Clip")});
+                };
+
+                let Some(max) = node.attribute[0].f else{
+                    return Err(GraphError::MissingOperand { operand: String::from("max"), operator: node_name, operator_type:String::from("Clip")});
+                };
+
+                let attrs: ClipAttributes = ClipAttributes::new(min, max);
 
                 parents_name = vec![inputs.remove(0)];
 
@@ -256,12 +311,11 @@ pub fn create_graph() {
                 Operator::Shape
             }
             "Gather" => {
-                let attrs: GatherAttributes = GatherAttributes::new(
-                    node.attribute[0]
-                        .i
-                        .expect("Failed to unwrap i in axes attribute")
-                        as usize,
-                );
+                let Some(axes) = node.attribute[0].i else{
+                    return Err(GraphError::MissingOperand { operand: String::from("axes"), operator: node_name, operator_type:String::from("Gather")});
+                };
+
+                let attrs: GatherAttributes = GatherAttributes::new(axes as usize);
 
                 let mut vec = Vec::<TensorData>::new();
                 let inps;
@@ -269,17 +323,23 @@ pub fn create_graph() {
                 parents_name = vec![inputs.remove(0)];
 
                 for inp in inputs {
-                    let v = initializers
-                        .iter()
-                        .find(|tp| *tp.name() == inp)
-                        .expect("Failed to filter initializers");
+                    let v = match initializers.iter().find(|tp| *tp.name() == inp) {
+                        Some(t) => t,
+                        None => {
+                            return Err(GraphError::ConversionError(
+                                "Unable to filter initializers".to_string(),
+                            ))
+                        }
+                    };
                     vec.push(Tensor::from(v.clone()).data);
                 }
 
                 if let [index] = &vec[..] {
                     inps = GatherInputs::new(index.clone());
                 } else {
-                    panic!("inps uninitialized. Maybe initilizer is not defined");
+                    return Err(GraphError::DeconstructError(
+                        "Unable to retrieve inputs".to_string(),
+                    ));
                 }
 
                 Operator::Gather(inps, attrs)
@@ -293,37 +353,40 @@ pub fn create_graph() {
                 Operator::Unsqueeze(attrs)
             }
             "Concat" => {
-                let attrs: ConcatAttributes = ConcatAttributes::new(
-                    node.attribute[0]
-                        .i
-                        .expect("Failed to unwrap i in axes attribute")
-                        as usize,
-                );
+                let Some(axes) = node.attribute[0].i else{
+                    return Err(GraphError::MissingOperand { operand: String::from("axes"), operator: node_name, operator_type:String::from("Concat")});
+                };
+                let attrs: ConcatAttributes = ConcatAttributes::new(axes as usize);
 
                 parents_name = inputs.clone();
 
                 Operator::Concat(attrs)
             }
-            _ => panic!("No matched value for op_type"),
+            _ => return Err(GraphError::UnsupportedOperator),
         };
 
-        let n = graph.add_node(operator);
+        let n = new_graph.add_node(operator);
         let ni = NodeInfo::new(parents_name, n.index());
         map.insert(node_name, ni);
     }
 
-    for (_n_name, n_info) in map.iter() {
+    for (n_name, n_info) in map.iter() {
         let parents = &n_info.parents_name;
         let n_index = n_info.node_index;
         for p_name in parents {
-            let p_index = map.get(p_name).expect("Parent not found").node_index;
-            graph.add_edge(NodeIndex::new(n_index), NodeIndex::new(p_index), None);
+            let p_node_info = map.get(p_name).ok_or(GraphError::ParentNotFound {
+                child_name: (*n_name).clone(),
+            })?;
+            let p_index = p_node_info.node_index;
+            new_graph.add_edge(NodeIndex::new(n_index), NodeIndex::new(p_index), None);
         }
     }
 
-    // let _toposort = toposort(&graph, None).unwrap().into_iter().rev().for_each(|n| {
-    //     println!("{:?}\n", graph[n].name());
+    // let _toposort = toposort(&new_graph, None).unwrap().into_iter().rev().for_each(|n| {
+    //     println!("{:?}\n", new_graph[n].name());
     // });
+
+    Ok(())
 }
 
 #[test]
@@ -345,7 +408,7 @@ fn print_parsed_model_test() {
 
     // println!("{:?}\n\n\n", initializer[0]);
 
-    // for node in parsed_model.unwrap().graph.unwrap().node{
+    // for node in parsed_model.unwrap().new_graph.unwrap().node{
     //     println!("{:?}\n", node );
     // }
 
