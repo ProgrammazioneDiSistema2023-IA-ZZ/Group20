@@ -137,7 +137,7 @@ fn test_convolution_complete() {
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
     let my_y = conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    // println!("avg error = {}", err);
+    //println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
@@ -157,6 +157,40 @@ fn test_convolution_complete_bias() {
     let my_y = conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
+fn test_convolution_huge() {
+    let x_shape = [1, 128, 224, 224];
+    let w_shape = [256, 128, 3, 3];
+    let b_shape = [256];
+    let y_shape = [1, 256, 224, 224];
+    let x = load("tests/tensors/convolution/huge/x.npy", &x_shape);
+    let w = load("tests/tensors/convolution/huge/w.npy", &w_shape);
+    let b = load("tests/tensors/convolution/huge/b.npy", &b_shape).into_dimensionality::<Ix1>().unwrap();
+    let y = load("tests/tensors/convolution/huge/y.npy", &y_shape);
+    let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
+    let my_y = conv(x, w, Some(b), attrs).unwrap();
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
+fn test_convolution_big() {
+    let x_shape = [1, 64, 224, 224];
+    let w_shape = [64, 64, 3, 3];
+    let b_shape = [64];
+    let y_shape = [1, 64, 224, 224];
+    let x = load("tests/tensors/convolution/big/x.npy", &x_shape);
+    let w = load("tests/tensors/convolution/big/w.npy", &w_shape);
+    let b = load("tests/tensors/convolution/big/b.npy", &b_shape).into_dimensionality::<Ix1>().unwrap();
+    let y = load("tests/tensors/convolution/big/y.npy", &y_shape);
+    let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
+    let my_y = conv(x, w, Some(b), attrs).unwrap();
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    println!("avg error = {}", err);
     assert!(err < 1e-5);
 }
 
