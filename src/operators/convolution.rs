@@ -88,9 +88,9 @@ pub fn conv(
                     // kern_row and kern_col used to access the kernel
                     let mut accumulator: f32 = bias[[featmap]];
                     // iterate over all input channels
-                    // iterate over the window defined by the kernel with the specified dilation
                     for channel in group_s..group_e {
                         let group_channel = channel % input_group_size;
+                        // iterate over the window defined by the kernel with the specified dilation
                         for (kern_row, input_row) in (win_hs..win_he).step_by(dilat_h).enumerate() {
                             if input_row < 0 || input_row >= height as i64 {
                                 continue;
