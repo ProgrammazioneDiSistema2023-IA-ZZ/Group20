@@ -45,11 +45,26 @@ pub fn create_graph() -> Result<(), GraphError> {
     };
 
     let graph_input = graph_proto.input;
-    let _graph_output = graph_proto.output;
+    let graph_output = graph_proto.output;
     let initializers = graph_proto.initializer;
     let nodes = graph_proto.node;
 
-    println!("graph_input:\n{:?}\n", graph_input[0]);
+    let mut input_node_name;
+    let input_node = graph_input
+        .into_iter()
+        .filter_map(|vip| {
+            input_node_name = vip.name.unwrap();
+            Tensor::try_from(vip).ok()
+        })
+        .next();
+
+    
+    let output_node = graph_output
+        .into_iter()
+        .filter_map(|vip| Tensor::try_from(vip).ok())
+        .next();
+
+    println!("{:?}", input_node);
 
     let mut map: HashMap<String, NodeInfo> = HashMap::new();
 
@@ -94,7 +109,7 @@ pub fn create_graph() -> Result<(), GraphError> {
 
                 let attrs = BatchNormAttributes::new(epsilon, momentum, spatial);
 
-                let mut vec = Vec::<TensorData>::new();
+                let mut useful_initializers: Vec<TensorData> = Vec::<TensorData>::new();
                 let inps;
 
                 parents_name = vec![inputs.remove(0)];
@@ -108,10 +123,15 @@ pub fn create_graph() -> Result<(), GraphError> {
                             ))
                         }
                     };
-                    vec.push(Tensor::from(v.clone()).data);
+
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                            return Err(GraphError::UnexpectedError);
+                    };
+
+                    useful_initializers.push(data);
                 }
 
-                if let [scale, b, mean, var] = &vec[..] {
+                if let [scale, b, mean, var] = &useful_initializers[..] {
                     inps =
                         BatchNormInputs::new(scale.clone(), b.clone(), mean.clone(), var.clone());
                 } else {
@@ -152,7 +172,7 @@ pub fn create_graph() -> Result<(), GraphError> {
                     ],
                 );
 
-                let mut vec = Vec::<TensorData>::new();
+                let mut useful_initializers = Vec::<TensorData>::new();
                 let inps;
 
                 parents_name = vec![inputs.remove(0)];
@@ -167,12 +187,16 @@ pub fn create_graph() -> Result<(), GraphError> {
                         }
                     };
 
-                    vec.push(Tensor::from(v.clone()).data);
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                        return Err(GraphError::UnexpectedError);
+                };
+
+                    useful_initializers.push(data);
                 }
 
-                if let [weights, bias] = &vec[..] {
+                if let [weights, bias] = &useful_initializers[..] {
                     inps = ConvInputs::new(weights.clone(), Some(bias.clone()));
-                } else if let [weights] = &vec[..] {
+                } else if let [weights] = &useful_initializers[..] {
                     inps = ConvInputs::new(weights.clone(), None);
                 } else {
                     return Err(GraphError::DeconstructError(
@@ -218,7 +242,7 @@ pub fn create_graph() -> Result<(), GraphError> {
                 Operator::GlobalAveragePool
             }
             "Reshape" => {
-                let mut vec = Vec::<TensorData>::new();
+                let mut useful_initializers = Vec::<TensorData>::new();
                 let inps;
 
                 parents_name = vec![inputs.remove(0)];
@@ -232,10 +256,15 @@ pub fn create_graph() -> Result<(), GraphError> {
                             ))
                         }
                     };
-                    vec.push(Tensor::from(v.clone()).data);
+
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                        return Err(GraphError::UnexpectedError);
+                    };
+
+                    useful_initializers.push(data);
                 }
 
-                if let [shape] = &vec[..] {
+                if let [shape] = &useful_initializers[..] {
                     inps = ReshapeInputs::new(shape.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
@@ -264,7 +293,7 @@ pub fn create_graph() -> Result<(), GraphError> {
 
                 let attrs: GemmAttributes = GemmAttributes::new(alpha, beta, trans_a, trans_b);
 
-                let mut vec = Vec::<TensorData>::new();
+                let mut useful_initializers = Vec::<TensorData>::new();
                 let inps;
 
                 parents_name = vec![inputs.remove(0)];
@@ -278,10 +307,15 @@ pub fn create_graph() -> Result<(), GraphError> {
                             ))
                         }
                     };
-                    vec.push(Tensor::from(v.clone()).data);
+
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                        return Err(GraphError::UnexpectedError);
+                    };
+
+                    useful_initializers.push(data);
                 }
 
-                if let [b, c] = &vec[..] {
+                if let [b, c] = &useful_initializers[..] {
                     inps = GemmInputs::new(b.clone(), c.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
@@ -317,7 +351,7 @@ pub fn create_graph() -> Result<(), GraphError> {
 
                 let attrs: GatherAttributes = GatherAttributes::new(axes as usize);
 
-                let mut vec = Vec::<TensorData>::new();
+                let mut useful_initializers = Vec::<TensorData>::new();
                 let inps;
 
                 parents_name = vec![inputs.remove(0)];
@@ -331,10 +365,15 @@ pub fn create_graph() -> Result<(), GraphError> {
                             ))
                         }
                     };
-                    vec.push(Tensor::from(v.clone()).data);
+
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                        return Err(GraphError::UnexpectedError);
+                    };
+
+                    useful_initializers.push(data);
                 }
 
-                if let [index] = &vec[..] {
+                if let [index] = &useful_initializers[..] {
                     inps = GatherInputs::new(index.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
