@@ -9,7 +9,9 @@ use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
 
 use crate::onnx_format::tensor_shape_proto::dimension::Value as TensorDimProto;
-use crate::onnx_format::{TensorProto, TensorShapeProto};
+use crate::onnx_format::type_proto::Value as ValueTypeProto;
+
+use crate::onnx_format::{TensorProto, TensorShapeProto, ValueInfoProto};
 
 pub type TensorParametrizedShape = Vec<GraphDimension>;
 
@@ -61,6 +63,13 @@ pub enum GraphDimension {
     Parameter(String),
 }
 
+impl GraphDimension {
+    /// Returns `true` if the dimension is a placeholder for a dimension that is not known and should be fed before execution.
+    pub fn is_parametrized(&self) -> bool {
+        matches!(self, GraphDimension::Parameter(_))
+    }
+}
+
 /// TensorProto completely define a tensor in ONNX (shape, data type and data values).
 /// This is what we call a *constant tensor* (see [`Tensor`]).
 impl From<TensorProto> for Tensor {
@@ -79,9 +88,13 @@ impl From<TensorProto> for Tensor {
 
 /// [`TensorShapeProto`] only defines the shape of a tensor in ONNX.
 /// The shape can be parametrized, so it may not be fully known before providing the parameters values.
+/// We are only intersted in parametrized tensors, because the other shapes are already defined in the model.
+/// So, this will fail if the shape is not parametrized.
 /// This is what we call a *graph tensor* (see [`Tensor`]).
-impl From<TensorShapeProto> for Tensor {
-    fn from(proto: TensorShapeProto) -> Self {
+impl TryFrom<TensorShapeProto> for Tensor {
+    type Error = &'static str;
+
+    fn try_from(proto: TensorShapeProto) -> Result<Self, Self::Error> {
         let dimensions = proto
             .dim
             .into_iter()
@@ -99,7 +112,35 @@ impl From<TensorShapeProto> for Tensor {
             })
             .collect::<TensorParametrizedShape>();
 
-        Tensor::Graph(dimensions, None)
+        if dimensions.iter().any(|dim| dim.is_parametrized()) {
+            return Ok(Tensor::Graph(dimensions, None));
+        }
+
+        Err("Tensor is parametrized")
+    }
+}
+
+impl TryFrom<ValueInfoProto> for Tensor {
+    type Error = &'static str;
+
+    fn try_from(value: ValueInfoProto) -> Result<Self, Self::Error> {
+        let value_type = value
+            .r#type
+            .ok_or("ValueInfoProto does not have a type")?
+            .value
+            .ok_or("ValueInfoProto does not have a tensor type")?;
+
+        match value_type {
+            ValueTypeProto::TensorType(tensor_value) => {
+                let shape_proto = tensor_value
+                    .shape
+                    .ok_or("TensorTypeProto does not have a shape")?;
+
+                // this will fail if the shape is not parametrized as expected for a graph tensor
+                Tensor::try_from(shape_proto)
+            }
+            _ => Err("ValueInfoProto is not a tensor"),
+        }
     }
 }
 
