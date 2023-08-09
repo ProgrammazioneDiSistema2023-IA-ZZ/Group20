@@ -26,6 +26,9 @@ pub enum GraphError {
     #[error("for the child {child_name}")]
     ParentNotFound{child_name:String},
 
+    #[error("")]
+    UnexpectedError,
+
     #[error("DeconstructError: {0}")]
     DeconstructError(String),
 
