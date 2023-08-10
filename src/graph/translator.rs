@@ -1,9 +1,11 @@
-use crate::onnx_format;
+use crate::onnx_format::ValueInfoProto;
+use crate::onnx_format::{self, ModelProto};
 use crate::operators::*;
 
 use crate::tensor::{Tensor, TensorData};
 
 use petgraph::algo::toposort;
+use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::GraphProp;
 use petgraph::Graph;
@@ -13,29 +15,30 @@ use std::{fs::File, io::Read};
 
 use super::GraphError;
 
-#[allow(dead_code)]
-#[derive(Debug)]
-struct NodeInfo {
-    parents_name: Vec<String>,
-    node_index: usize,
+type RuntimeGraph = Graph<Operator, Option<TensorData>>;
+
+enum NodeInfo {
+    Input(u32),
+    Output(u32),
+    Intermediate(u32, Vec<String>, Vec<String>),
 }
 
 impl NodeInfo {
-    pub fn new(parents_name: Vec<String>, node_index: usize) -> Self {
-        Self {
-            parents_name,
-            node_index,
+    fn index(&self) -> u32 {
+        match self {
+            NodeInfo::Input(i) => *i,
+            NodeInfo::Output(i) => *i,
+            NodeInfo::Intermediate(i, _, _) => *i,
         }
     }
 }
 
-pub fn create_graph() -> Result<(), GraphError> {
-    let path_resnet = "tests/models/resnet18-v2-7.onnx";
-    //let path_mobilenet = "tests/models/mobilenetv2-10.onnx";
+pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError> {
+    let mut parsed_nodes: HashMap<String, NodeInfo> = HashMap::new();
 
-    let parsed_model = get_parsed_model(path_resnet);
+    let mut model_graph = RuntimeGraph::new();
 
-    let graph_proto = match parsed_model.graph {
+    let graph_proto = match model_proto.graph {
         Some(g) => g,
         None => {
             return Err(GraphError::ConversionError(
@@ -49,28 +52,15 @@ pub fn create_graph() -> Result<(), GraphError> {
     let initializers = graph_proto.initializer;
     let nodes = graph_proto.node;
 
-    let mut input_node_name;
-    let input_node = graph_input
-        .into_iter()
-        .filter_map(|vip| {
-            input_node_name = vip.name.unwrap();
-            Tensor::try_from(vip).ok()
-        })
-        .next();
+    let (input_node_name, input_tensor) =
+        parse_model_io_node(graph_input).expect("Unable to parse input node");
+    let (output_node_name, output_tensor) =
+        parse_model_io_node(graph_output).expect("Unable to parse output node");
+    let input_node = model_graph.add_node(Operator::None);
+    let output_node = model_graph.add_node(Operator::None);
 
-    
-    let output_node = graph_output
-        .into_iter()
-        .filter_map(|vip| Tensor::try_from(vip).ok())
-        .next();
-
-    println!("{:?}", input_node);
-
-    let mut map: HashMap<String, NodeInfo> = HashMap::new();
-
-    let mut new_graph: Graph<Operator, Option<TensorData>> =
-        Graph::<Operator, Option<TensorData>>::new();
-
+    parsed_nodes.insert(input_node_name, NodeInfo::Input(input_node.index() as u32));
+    println!("Input index: {}", input_node.index());
     for node in nodes {
         //let pg = deps.add_node("petgraph");
 
@@ -91,7 +81,7 @@ pub fn create_graph() -> Result<(), GraphError> {
                 ))
             }
         };
-        let parents_name: Vec<String>;
+        let parents_names: Vec<String>;
 
         let operator: Operator = match op_type.as_str() {
             "BatchNormalization" => {
@@ -112,7 +102,7 @@ pub fn create_graph() -> Result<(), GraphError> {
                 let mut useful_initializers: Vec<TensorData> = Vec::<TensorData>::new();
                 let inps;
 
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
 
                 for inp in inputs {
                     let v = match initializers.iter().find(|tp| *tp.name().to_string() == inp) {
@@ -175,7 +165,7 @@ pub fn create_graph() -> Result<(), GraphError> {
                 let mut useful_initializers = Vec::<TensorData>::new();
                 let inps;
 
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
 
                 for inp in inputs {
                     let v = match initializers.iter().find(|tp| *tp.name() == inp) {
@@ -207,7 +197,7 @@ pub fn create_graph() -> Result<(), GraphError> {
                 Operator::Convolution(inps, attrs)
             }
             "Relu" => {
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
 
                 Operator::ReLU
             }
@@ -229,23 +219,23 @@ pub fn create_graph() -> Result<(), GraphError> {
                     ],
                 );
 
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
 
                 Operator::MaxPool(attrs)
             }
             "Add" => {
-                parents_name = vec![inputs.remove(0), inputs.remove(0)];
+                parents_names = vec![inputs.remove(0), inputs.remove(0)];
                 Operator::Add
             }
             "GlobalAveragePool" => {
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
                 Operator::GlobalAveragePool
             }
             "Reshape" => {
                 let mut useful_initializers = Vec::<TensorData>::new();
                 let inps;
 
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
 
                 for inp in inputs {
                     let v = match initializers.iter().find(|tp| *tp.name() == inp) {
@@ -296,7 +286,7 @@ pub fn create_graph() -> Result<(), GraphError> {
                 let mut useful_initializers = Vec::<TensorData>::new();
                 let inps;
 
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
 
                 for inp in inputs {
                     let v = match initializers.iter().find(|tp| *tp.name() == inp) {
@@ -336,12 +326,12 @@ pub fn create_graph() -> Result<(), GraphError> {
 
                 let attrs: ClipAttributes = ClipAttributes::new(min, max);
 
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
 
                 Operator::Clip(attrs)
             }
             "Shape" => {
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
                 Operator::Shape
             }
             "Gather" => {
@@ -354,7 +344,7 @@ pub fn create_graph() -> Result<(), GraphError> {
                 let mut useful_initializers = Vec::<TensorData>::new();
                 let inps;
 
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
 
                 for inp in inputs {
                     let v = match initializers.iter().find(|tp| *tp.name() == inp) {
@@ -387,7 +377,7 @@ pub fn create_graph() -> Result<(), GraphError> {
                 let attrs: UnsqueezeAttributes =
                     UnsqueezeAttributes::new(node.attribute[0].ints[0] as usize);
 
-                parents_name = vec![inputs.remove(0)];
+                parents_names = vec![inputs.remove(0)];
 
                 Operator::Unsqueeze(attrs)
             }
@@ -397,46 +387,64 @@ pub fn create_graph() -> Result<(), GraphError> {
                 };
                 let attrs: ConcatAttributes = ConcatAttributes::new(axes as usize);
 
-                parents_name = inputs.clone();
+                parents_names = inputs.clone();
 
                 Operator::Concat(attrs)
             }
             _ => return Err(GraphError::UnsupportedOperator),
         };
 
-        let n = new_graph.add_node(operator);
-        let ni = NodeInfo::new(parents_name, n.index());
-        map.insert(node_name, ni);
+        let n: NodeIndex = model_graph.add_node(operator);
+        parsed_nodes.insert(
+            node_name,
+            NodeInfo::Intermediate(n.index() as u32, parents_names, node.output),
+        );
     }
 
-    for (n_name, n_info) in map.iter() {
-        let parents = &n_info.parents_name;
-        let n_index = n_info.node_index;
+    for (node_name, parsed_node) in parsed_nodes.iter() {
+        let NodeInfo::Intermediate(node_index, parents, children) = parsed_node else {
+            continue;
+        };
         for p_name in parents {
-            let p_node_info = map.get(p_name).ok_or(GraphError::ParentNotFound {
-                child_name: (*n_name).clone(),
+            let parent_node = parsed_nodes.get(p_name).ok_or(GraphError::ParentNotFound {
+                child_name: (*node_name).clone(),
             })?;
-            let p_index = p_node_info.node_index;
-            new_graph.add_edge(NodeIndex::new(n_index), NodeIndex::new(p_index), None);
+            let parent_index = parent_node.index();
+            model_graph.add_edge(
+                NodeIndex::from(parent_index),
+                NodeIndex::from(*node_index),
+                None,
+            );
+
+            if children
+                .iter()
+                .any(|child| child.as_str() == output_node_name.as_str())
+            {
+                model_graph.add_edge(NodeIndex::from(*node_index), output_node, None);
+            }
         }
     }
 
-    // let _toposort = toposort(&new_graph, None).unwrap().into_iter().rev().for_each(|n| {
-    //     println!("{:?}\n", new_graph[n].name());
-    // });
+    Ok(model_graph)
+}
 
-    Ok(())
+fn parse_model_io_node(io_value_infos: Vec<ValueInfoProto>) -> Option<(String, Tensor)> {
+    io_value_infos
+        .into_iter()
+        .filter_map(|value_info| {
+            let node_name = value_info.name.clone().unwrap_or_default();
+            let tensor = Tensor::try_from(value_info).ok()?;
+            Some((node_name, tensor))
+        })
+        .next()
 }
 
 #[test]
 fn print_parsed_model_test() {
-    let mut buffer = Vec::new();
-    // let mut file = File::open("tests/models/mobilenetv2-10.onnx").unwrap();
-    let mut file = File::open("tests/models/resnet18-v2-7.onnx").unwrap();
-    file.read_to_end(&mut buffer).unwrap();
+    let path_resnet = "tests/models/resnet18-v2-7.onnx";
+    //let path_mobilenet = "tests/models/mobilenetv2-10.onnx";
 
-    let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
-    let _initializer = parsed_model.unwrap().graph.unwrap().initializer;
+    let parsed_model = get_parsed_model(path_resnet);
 
     // println!("\nlength of initializer: {}\n\n", initializer.len());
 
@@ -451,7 +459,14 @@ fn print_parsed_model_test() {
     //     println!("{:?}\n", node );
     // }
 
-    create_graph();
+    let graph = create_graph(parsed_model).unwrap();
+    //let pgraph = graph.map(|ni, n| n.name(), |ei, e| e.clone());
+    //print_graph(&pgraph, 0.into());
+    //println!("{:?}", Dot::with_config(&pgraph, &[Config::EdgeNoLabel]));
+
+    toposort(&graph, None).unwrap().into_iter().for_each(|n| {
+        println!("{}", graph[n].name());
+    });
 }
 
 fn get_parsed_model(path: &str) -> onnx_format::ModelProto {
