@@ -32,16 +32,16 @@ pub enum Operators {
 
 #[derive(Error, Debug)]
 pub enum OperationError {
-    #[error("wrong tensor shape: expected `{0}`, found `{1}`")]
+    #[error("Wrong tensor shape: expected `{0}`, found `{1}`")]
     WrongShape(String, String),
-    #[error("wrong tensor dimensionality: expected `{0}`, found `{1}`")]
+    #[error("Wrong tensor dimensionality: expected `{0}`, found `{1}`")]
     WrongDim(usize, usize),
-    #[error("input tensor shapes are supposed to match but they don't: `{0}` != `{1}`")]
-    UnmatchingShape(String, String),
-    #[error("the specified operator(s) are not supported")]
+    #[error("Ouput tensor shapes are supposed to match but they don't: `{0}` != `{1}`")]
+    UnexpectedOutputShape(String, String),
+    #[error("The specified operator(s) are not supported")]
     UnsupportedOperator,
-    #[error("the specified operator(s) are not valid")]
+    #[error("The specified operator(s) are not valid")]
     InvalidOperator,
-    #[error("unknwon operation error")]
+    #[error("Unknwon operation error")]
     Unknown,
 }
