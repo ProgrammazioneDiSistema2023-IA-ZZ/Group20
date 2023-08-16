@@ -1,7 +1,7 @@
 use ndarray::{ArrayD, Ix0, Ix2, IxDyn};
 use std::ops::Add;
 
-use crate::tensor::TensorData;
+use crate::tensor::{TensorData, TypeToTensorDataType};
 
 use super::OperationError;
 
@@ -36,14 +36,18 @@ pub fn add(x: ArrayD<f32>, y: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError
     }
 }
 
-pub fn shape(x: ArrayD<f32>) -> ArrayD<usize> {
-    ArrayD::<usize>::from_shape_vec(IxDyn(&[x.ndim()]), x.shape().to_vec()).unwrap()
+pub fn shape(x: ArrayD<f32>) -> ArrayD<i64> {
+    ArrayD::<i64>::from_shape_vec(
+        IxDyn(&[x.ndim()]),
+        x.shape().iter().map(|e| *e as i64).collect(),
+    )
+    .unwrap()
 }
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct GatherInputs {
-    index: TensorData,
+    pub index: TensorData,
 }
 
 impl GatherInputs {
@@ -101,7 +105,10 @@ pub fn unsqueeze(
 
 pub type ConcatAttributes = GatherAttributes;
 
-pub fn concat(x: Vec<ArrayD<i64>>, attrs: ConcatAttributes) -> Result<ArrayD<i64>, OperationError> {
+pub fn concat<T>(x: Vec<ArrayD<T>>, attrs: ConcatAttributes) -> Result<ArrayD<T>, OperationError>
+where
+    T: TypeToTensorDataType + Copy,
+{
     if attrs.axes != 0 {
         Err(OperationError::UnsupportedOperator)
     } else if x.is_empty() {
@@ -132,7 +139,7 @@ pub fn global_average_pool(x: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ReshapeInputs {
-    shape: TensorData,
+    pub shape: TensorData,
 }
 
 impl ReshapeInputs {
@@ -169,8 +176,8 @@ pub fn reshape(x: ArrayD<f32>, shape: ArrayD<i64>) -> Result<ArrayD<f32>, Operat
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct GemmInputs {
-    b: TensorData,
-    c: TensorData,
+    pub b: TensorData,
+    pub c: TensorData,
 }
 
 impl GemmInputs {
@@ -181,10 +188,10 @@ impl GemmInputs {
 
 #[derive(Debug, Clone)]
 pub struct GemmAttributes {
-    alpha: f32,
-    beta: f32,
-    trans_a: i64,
-    trans_b: i64,
+    pub alpha: f32,
+    pub beta: f32,
+    pub trans_a: i64,
+    pub trans_b: i64,
 }
 
 impl GemmAttributes {
@@ -249,17 +256,17 @@ pub fn gemm(
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct BatchNormInputs {
-    scale: TensorData,
-    b: TensorData,
-    mean: TensorData,
-    var: TensorData,
+    pub scale: TensorData,
+    pub bias: TensorData,
+    pub mean: TensorData,
+    pub var: TensorData,
 }
 
 impl BatchNormInputs {
-    pub fn new(scale: TensorData, b: TensorData, mean: TensorData, var: TensorData) -> Self {
+    pub fn new(scale: TensorData, bias: TensorData, mean: TensorData, var: TensorData) -> Self {
         Self {
             scale,
-            b,
+            bias,
             mean,
             var,
         }

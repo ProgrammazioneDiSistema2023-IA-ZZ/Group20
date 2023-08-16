@@ -11,12 +11,15 @@ mod minor;
 pub use convolution::*;
 pub use minor::*;
 
+use crate::tensor::TensorParametrizedShape;
 use thiserror::Error;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Operator {
-    None,
+    InputFeed(TensorParametrizedShape),
+    OutputCollector(TensorParametrizedShape),
+
     Convolution(ConvInputs, ConvAttributes),
     Clip(ClipAttributes),
     Add,

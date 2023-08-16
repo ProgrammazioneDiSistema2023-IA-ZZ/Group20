@@ -7,19 +7,15 @@ use crate::tensor::TensorData;
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ConvInputs {
-    weights: TensorData,
-    bias: Option<TensorData>,
+    pub weights: TensorData,
+    pub bias: Option<TensorData>,
 }
 
 impl ConvInputs {
     pub fn new(weights: TensorData, bias: Option<TensorData>) -> Self {
-        Self {
-            weights,
-            bias,
-        }
+        Self { weights, bias }
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct ConvAttributes {

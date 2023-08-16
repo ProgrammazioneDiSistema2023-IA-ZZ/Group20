@@ -4,7 +4,7 @@
 //!
 //! The main struct is [`Tensor`], which contains the name of the tensor and its data.
 //! The data is stored in the [`TensorData`] enum, which contains the actual array with generic element data type.
-use ndarray::{ArrayD, IxDyn};
+use ndarray::{ArrayBase, ArrayD, IxDyn, OwnedRepr, RawData};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
 
@@ -86,15 +86,8 @@ impl From<TensorProto> for Tensor {
     }
 }
 
-/// [`TensorShapeProto`] only defines the shape of a tensor in ONNX.
-/// The shape can be parametrized, so it may not be fully known before providing the parameters values.
-/// We are only intersted in parametrized tensors, because the other shapes are already defined in the model.
-/// So, this will fail if the shape is not parametrized.
-/// This is what we call a *graph tensor* (see [`Tensor`]).
-impl TryFrom<TensorShapeProto> for Tensor {
-    type Error = &'static str;
-
-    fn try_from(proto: TensorShapeProto) -> Result<Self, Self::Error> {
+impl From<TensorShapeProto> for Tensor {
+    fn from(proto: TensorShapeProto) -> Self {
         let dimensions = proto
             .dim
             .into_iter()
@@ -112,11 +105,17 @@ impl TryFrom<TensorShapeProto> for Tensor {
             })
             .collect::<TensorParametrizedShape>();
 
-        if dimensions.iter().any(|dim| dim.is_parametrized()) {
-            return Ok(Tensor::Graph(dimensions, None));
-        }
+        Tensor::Graph(dimensions, None)
+    }
+}
 
-        Err("Tensor is parametrized")
+impl Tensor {
+    pub fn is_parametrized_io(&self) -> bool {
+        if let Tensor::Graph(dims, _) = self {
+            dims.iter().any(|x| x.is_parametrized())
+        } else {
+            false
+        }
     }
 }
 
@@ -137,7 +136,7 @@ impl TryFrom<ValueInfoProto> for Tensor {
                     .ok_or("TensorTypeProto does not have a shape")?;
 
                 // this will fail if the shape is not parametrized as expected for a graph tensor
-                Tensor::try_from(shape_proto)
+                Ok(Tensor::from(shape_proto))
             }
             _ => Err("ValueInfoProto is not a tensor"),
         }
@@ -186,6 +185,29 @@ pub enum TensorData {
     Double(ArrayD<f64>),
     Uint32(ArrayD<u32>),
     Uint64(ArrayD<u64>),
+}
+
+pub trait TensorDataIntoDimensionality<T>
+where
+    T: TypeToTensorDataType + Copy,
+{
+    fn into_dimensionality<D>(self) -> ArrayBase<OwnedRepr<T>, D>
+    where
+        D: ndarray::Dimension;
+}
+
+pub trait TensorDataIntoRawData<T>
+where
+    T: TypeToTensorDataType + Copy,
+{
+    fn into_raw_data(self) -> Vec<u8>;
+}
+
+pub trait DynamicTensorData<T>
+where
+    T: TypeToTensorDataType + Copy,
+{
+    fn new_dyn(data: ArrayD<T>) -> TensorData;
 }
 
 /// Trait used to map Rust types to ONNX types (for example `f32` is mapped to `Float`)
@@ -346,6 +368,32 @@ macro_rules! impl_type_trait {
         impl TypeToTensorDataType for $type_ {
             fn tensor_data_type() -> TensorDataType {
                 TensorDataType::$variant
+            }
+        }
+
+        // implement conversion from ndarray to TensorData
+        impl From<ArrayD<$type_>> for TensorData {
+            fn from(array: ArrayD<$type_>) -> Self {
+                TensorData::$variant(array)
+            }
+        }
+
+        //implement dimensionality conversion from TensorData to ndarray
+        impl TensorDataIntoDimensionality<$type_> for TensorData {
+            fn into_dimensionality<D>(self) -> ArrayBase<OwnedRepr<$type_>, D>
+            where
+                D: ndarray::Dimension,
+            {
+                match self {
+                    TensorData::$variant(array) => array.into_dimensionality::<D>().unwrap(),
+                    _ => panic!("Invalid conversion"),
+                }
+            }
+        }
+        //implement dynamic conversion from TensorData to ndarray
+        impl DynamicTensorData<$type_> for TensorData {
+            fn new_dyn(data: ArrayD<$type_>) -> TensorData {
+                TensorData::$variant(data)
             }
         }
     };

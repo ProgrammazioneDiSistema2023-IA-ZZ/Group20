@@ -230,7 +230,10 @@ fn test_shape() {
     let x_shape = [64, 32, 5, 5];
     let x = ArrayD::<f32>::from_shape_fn(IxDyn(&x_shape), |_| 0.0);
     let my_x_shape = shape(x);
-    assert_eq!(my_x_shape.into_raw_vec(), x_shape);
+    assert_eq!(
+        my_x_shape.into_raw_vec(),
+        x_shape.iter().map(|x| *x as i64).collect::<Vec<i64>>()
+    );
 }
 
 #[test]
