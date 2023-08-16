@@ -26,7 +26,7 @@ pub fn add(x: ArrayD<f32>, y: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError
     if x.shape() == y.shape() {
         Ok(x.add(y))
     } else {
-        Err(OperationError::UnexpectedOutputShape(
+        Err(OperationError::UnexpectedShape(
             format!("{:?}", x.shape()),
             format!("{:?}", y.shape()),
         ))
@@ -191,13 +191,13 @@ pub fn gemm(
     };
 
     if act_a.shape()[1] != act_b.shape()[0] {
-        return Err(OperationError::UnexpectedOutputShape(
+        return Err(OperationError::UnexpectedShape(
             format!("[{}, *]", act_a.shape()[1]),
             format!("[{}, *]", act_b.shape()[0]),
         ));
     }
     if act_b.shape()[1] != c.shape()[1] {
-        return Err(OperationError::UnexpectedOutputShape(
+        return Err(OperationError::UnexpectedShape(
             format!("[*, {}]", act_b.shape()[1]),
             format!("[*, {}]", c.shape()[1]),
         ));
