@@ -11,6 +11,8 @@ mod minor;
 pub use convolution::*;
 pub use minor::*;
 
+use thiserror::Error;
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Operator {
@@ -29,7 +31,6 @@ pub enum Operator {
     BatchNorm(BatchNormInputs, BatchNormAttributes),
     ReLU,
 }
-
 
 impl Operator {
     pub fn name(&self) -> String {
@@ -50,4 +51,20 @@ impl Operator {
             _ => "None".to_string(),
         }
     }
+}
+
+#[derive(Error, Debug)]
+pub enum OperationError {
+    #[error("Wrong tensor shape: expected `{0}`, found `{1}`")]
+    WrongShape(String, String),
+    #[error("Wrong tensor dimensionality: expected `{0}`, found `{1}`")]
+    WrongDim(usize, usize),
+    #[error("The operation requires coherent tensor shapes, but they don't match: `{0}` != `{1}`")]
+    UnexpectedShape(String, String),
+    #[error("The specified operator(s) are not supported")]
+    UnsupportedOperator,
+    #[error("The specified operator(s) are not valid")]
+    InvalidOperator,
+    #[error("Unknwon operation error")]
+    Unknown,
 }
