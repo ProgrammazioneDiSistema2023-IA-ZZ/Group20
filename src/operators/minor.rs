@@ -210,15 +210,24 @@ pub fn gemm(
         trans_a,
         trans_b,
     } = attrs;
-    if a.ndim() != 2 {
+    if a.ndim() > 2 {
         return Err(OperationError::WrongDim(2, a.ndim()));
     }
-    if b.ndim() != 2 {
+    if b.ndim() > 2 {
         return Err(OperationError::WrongDim(2, b.ndim()));
     }
-    if c.ndim() != 2 {
+    if c.ndim() > 2 {
         return Err(OperationError::WrongDim(2, c.ndim()));
     }
+    let act_c = if c.ndim() == 2 {
+        c.into_dimensionality::<Ix2>().unwrap()
+    } else {
+        let n = c.len();
+        c.into_shape(IxDyn(&[1, n]))
+            .unwrap()
+            .into_dimensionality::<Ix2>()
+            .unwrap()
+    };
 
     let act_a = if trans_a == 0 {
         a.into_dimensionality::<Ix2>().unwrap()
@@ -237,13 +246,15 @@ pub fn gemm(
             format!("[{}, *]", act_b.shape()[0]),
         ));
     }
-    if act_b.shape()[1] != c.shape()[1] {
+    if act_b.shape()[1] != act_c.shape()[1] {
         return Err(OperationError::UnexpectedShape(
             format!("[*, {}]", act_b.shape()[1]),
-            format!("[*, {}]", c.shape()[1]),
+            format!("[*, {}]", act_c.shape()[1]),
         ));
     }
-    Ok(alpha * act_a.dot(&act_b) + beta * c)
+    Ok((alpha * act_a.dot(&act_b) + beta * act_c)
+        .into_dimensionality::<IxDyn>()
+        .unwrap())
 }
 
 #[allow(dead_code)]

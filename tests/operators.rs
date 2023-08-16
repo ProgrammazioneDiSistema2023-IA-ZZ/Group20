@@ -1,4 +1,4 @@
-use ndarray::{arr2, ArrayD, Ix1, IxDyn};
+use ndarray::{arr1, arr2, ArrayD, Ix1, IxDyn};
 use npy::NpyData;
 use onnx_runtime::operators::*;
 use std::fs::File;
@@ -304,7 +304,7 @@ fn test_gemm() {
     ])
     .into_dimensionality::<IxDyn>()
     .unwrap();
-    let c: ArrayD<f32> = arr2(&[[0.5, -0.5, 0.5, -0.5]])
+    let c: ArrayD<f32> = arr1(&[0.5, -0.5, 0.5, -0.5])
         .into_dimensionality::<IxDyn>()
         .unwrap();
     let attrs = GemmAttributes::new(2.0, 0.1, 0, 0);
