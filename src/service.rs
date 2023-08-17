@@ -11,7 +11,9 @@ use crate::{
         add, batch_norm, clip, concat, conv, gather, gemm, global_average_pool, max_pool, relu,
         reshape, shape, unsqueeze, OperationError, Operator,
     },
-    tensor::{DynamicTensorData, TensorData, TensorDataIntoDimensionality, TypeToTensorDataType},
+    tensor::{
+        DynamicTensorData, Tensor, TensorData, TensorDataIntoDimensionality, TypeToTensorDataType,
+    },
 };
 
 pub struct Service {
@@ -263,7 +265,7 @@ fn test_service() {
     use std::io::Read;
 
     let mut buffer = Vec::new();
-    let mut file = File::open("tests/models/mobilenetv2-7.onnx").unwrap();
+    let mut file = File::open("tests/models/resnet18-v2-7.onnx").unwrap();
     file.read_to_end(&mut buffer).unwrap();
 
     let parsed_model = ModelProto::decode(buffer.as_slice()).unwrap();
@@ -276,19 +278,20 @@ fn test_service() {
     let config = Config { num_threads: 1 };
     let service = Service::new(parsed_model, config);
 
-    // read an image as input from a file and convert it to a tensor
-    let input_raw = image::open("tests/images/siamese-cat.jpg")
-        .unwrap()
-        .resize_exact(224, 224, image::imageops::FilterType::Nearest)
-        .to_rgb8()
-        .into_raw()
-        .into_iter()
-        .map(|e| e as f32)
-        .collect::<Vec<f32>>();
-    let input = Array::from_shape_vec((1, 3, 224, 224), input_raw).unwrap();
+    //read input from test.pb as an ArrayD of shape [1, 3, 224, 224]
+    let mut input_buffer = Vec::new();
+    let mut input_file = File::open("tests/testset/resnet/input_0.pb").unwrap();
+
+    input_file.read_to_end(&mut input_buffer).unwrap();
+    // decode input as a TensorProto
+    let input = crate::onnx_format::TensorProto::decode(input_buffer.as_slice()).unwrap();
+    // convert the input to a TensorData
+    let input = Tensor::from(input);
+    // convert the TensorData to an ArrayD
+    let Tensor::Constant(TensorData::Float(input)) = input else {panic!("Invalid input type")};
 
     let input_parameters = vec![];
-    let result = service.run::<f32>(input.into_dyn(), input_parameters);
+    let result = service.run::<f32>(input, input_parameters);
 
     //print the result
     println!("{:?}", result);
@@ -297,4 +300,26 @@ fn test_service() {
     let TensorData::Float(result) = result.unwrap() else {panic!("Invalid result type")};
     let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
     writer.serialize_array2(&result).unwrap();
+
+    let mut expected_input_file = File::open("tests/testset/resnet/output_0.pb").unwrap();
+    let mut expected_input_buffer = Vec::new();
+    expected_input_file
+        .read_to_end(&mut expected_input_buffer)
+        .unwrap();
+    let expected_output =
+        crate::onnx_format::TensorProto::decode(expected_input_buffer.as_slice()).unwrap();
+
+    let Tensor::Constant(TensorData::Float(expected_output)) = Tensor::from(expected_output) else {panic!("Invalid expected output type")};
+    let expected_output = expected_output
+        .into_dimensionality::<ndarray::Ix2>()
+        .unwrap();
+
+    let expected_output_file = File::create("tests/results_expected.csv").unwrap();
+    let mut writer = WriterBuilder::new()
+        .has_headers(false)
+        .from_writer(expected_output_file);
+    writer.serialize_array2(&expected_output).unwrap();
+
+    //check if the result is the same as the expected output
+    assert_eq!(result, expected_output);
 }
