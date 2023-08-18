@@ -50,10 +50,16 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
     let initializers = graph_proto.initializer;
     let nodes = graph_proto.node;
 
-    let (input_node_name, input_shape) =
-        parse_model_io_node(graph_input).expect("Unable to parse input node");
-    let (output_node_name, output_shape) =
-        parse_model_io_node(graph_output).expect("Unable to parse output node");
+    let (input_node_name, input_shape) = match parse_model_io_node(graph_input) {
+        Some((name, shape)) => (name, shape),
+        None => return Err(GraphError::InputNodeParsingError),
+    };
+
+    let (output_node_name, output_shape) = match parse_model_io_node(graph_output) {
+        Some((name, shape)) => (name, shape),
+        None => return Err(GraphError::OutputNodeParsingError),
+    };
+
     let input_node = model_graph.add_node(Operator::InputFeed(input_shape));
     let output_node = model_graph.add_node(Operator::OutputCollector(output_shape));
 

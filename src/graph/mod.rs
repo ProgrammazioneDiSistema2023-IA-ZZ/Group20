@@ -35,6 +35,12 @@ pub enum GraphError {
     #[error("DeconstructError: {0}")]
     DeconstructError(String),
 
+    #[error("InputNodeParsingError")]
+    InputNodeParsingError,
+
+    #[error("OutputNodeParsingError")]
+    OutputNodeParsingError,
+
     #[error("Unknwon operation error")]
     Unknown,
 }
