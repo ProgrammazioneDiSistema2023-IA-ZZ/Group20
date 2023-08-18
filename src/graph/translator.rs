@@ -1,15 +1,14 @@
+use crate::onnx_format::ModelProto;
 use crate::onnx_format::ValueInfoProto;
-use crate::onnx_format::{self, ModelProto};
 use crate::operators::*;
 
 use crate::tensor::{Tensor, TensorData, TensorParametrizedShape};
 
 use petgraph::graph::NodeIndex;
 use petgraph::Graph;
-use prost::Message;
+
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::{fs::File, io::Read};
 
 use super::GraphError;
 
@@ -467,7 +466,10 @@ fn parse_model_io_node(
 mod tests {
 
     use super::*;
+    use crate::onnx_format::{self};
     use petgraph::algo::toposort;
+    use prost::Message;
+    use std::{fs::File, io::Read};
 
     #[test]
     fn parsed_model_test_resnet() {
@@ -502,5 +504,4 @@ mod tests {
             .map(|n| graph[n].name())
             .collect()
     }
-    
 }
