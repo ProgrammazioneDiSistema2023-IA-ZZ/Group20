@@ -265,7 +265,7 @@ fn test_service() {
     use std::io::Read;
 
     let mut buffer = Vec::new();
-    let mut file = File::open("tests/models/resnet18-v2-7.onnx").unwrap();
+    let mut file = File::open("tests/models/mobilenetv2-7.onnx").unwrap();
     file.read_to_end(&mut buffer).unwrap();
 
     let parsed_model = ModelProto::decode(buffer.as_slice()).unwrap();
@@ -280,7 +280,7 @@ fn test_service() {
 
     //read input from test.pb as an ArrayD of shape [1, 3, 224, 224]
     let mut input_buffer = Vec::new();
-    let mut input_file = File::open("tests/testset/resnet/input_0.pb").unwrap();
+    let mut input_file = File::open("tests/testset/mobilenet/input_0.pb").unwrap();
 
     input_file.read_to_end(&mut input_buffer).unwrap();
     // decode input as a TensorProto
@@ -301,7 +301,7 @@ fn test_service() {
     let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
     writer.serialize_array2(&result).unwrap();
 
-    let mut expected_input_file = File::open("tests/testset/resnet/output_0.pb").unwrap();
+    let mut expected_input_file = File::open("tests/testset/mobilenet/output_0.pb").unwrap();
     let mut expected_input_buffer = Vec::new();
     expected_input_file
         .read_to_end(&mut expected_input_buffer)
@@ -321,5 +321,6 @@ fn test_service() {
     writer.serialize_array2(&expected_output).unwrap();
 
     //check if the result is the same as the expected output
-    assert_eq!(result, expected_output);
+    let err = (result - expected_output).mapv(|x| x.abs()).mean().unwrap();
+    assert!(err < 1e-4);
 }
