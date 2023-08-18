@@ -15,9 +15,10 @@ use super::GraphError;
 
 type RuntimeGraph = Graph<Operator, RefCell<Option<TensorData>>>;
 
+/// This enum is used to store the information about the nodes of the graph.
+/// We will find only Input and Intermediate (not Output) nodes in order to build the graph and to avoid cyclic dependencies.
 enum NodeInfo {
     Input(u32),
-    Output(u32),
     Intermediate(u32, Vec<String>, Vec<String>),
 }
 
@@ -25,7 +26,6 @@ impl NodeInfo {
     fn index(&self) -> u32 {
         match self {
             NodeInfo::Input(i) => *i,
-            NodeInfo::Output(i) => *i,
             NodeInfo::Intermediate(i, _, _) => *i,
         }
     }
@@ -444,6 +444,7 @@ fn parse_model_io_node(
         .find_map(|value_info| {
             let node_name = value_info.name.clone().unwrap_or_default();
             let tensor = Tensor::try_from(value_info.clone()).ok()?;
+            //TODO: check this code
             if !tensor.is_parametrized_io() {
                 return None;
             }
@@ -462,44 +463,44 @@ fn parse_model_io_node(
             None
         })
 }
+#[cfg(test)]
+mod tests {
 
-#[test]
-fn print_parsed_model_test() {
+    use super::*;
     use petgraph::algo::toposort;
 
-    let path_resnet = "tests/models/resnet18-v2-7.onnx";
-    //let path_mobilenet = "tests/models/mobilenetv2-10.onnx";
+    #[test]
+    fn parsed_model_test_resnet() {
+        let path_resnet = "tests/models/resnet18-v2-7.onnx";
+        let execution_order_resnet = run_parsed_model(path_resnet);
+        assert_eq!(execution_order_resnet.len(), 71);
+    }
 
-    let parsed_model = get_parsed_model(path_resnet);
+    #[test]
+    fn parsed_model_test_mobilenet() {
+        let path_mobilenet = "tests/models/mobilenetv2-7.onnx";
+        let execution_order_mobilenet = run_parsed_model(path_mobilenet);
+        assert_eq!(execution_order_mobilenet.len(), 157);
+    }
 
-    // println!("\nlength of initializer: {}\n\n", initializer.len());
+    fn get_parsed_model(path: &str) -> onnx_format::ModelProto {
+        let mut buffer = Vec::new();
+        let mut file = File::open(path).unwrap();
+        file.read_to_end(&mut buffer).unwrap();
 
-    // for tensor in initializer{
-    //    println!("{:?}\n\n\n", tensor);
-    //    break;
-    // }
+        let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
+        parsed_model.expect("Failed to unwrap parsed_model in get_parsed_model()")
+    }
 
-    // println!("{:?}\n\n\n", initializer[0]);
+    fn run_parsed_model(path: &str) -> Vec<String> {
+        let parsed_model = get_parsed_model(path);
+        let graph = create_graph(parsed_model).unwrap();
 
-    // for node in parsed_model.unwrap().new_graph.unwrap().node{
-    //     println!("{:?}\n", node );
-    // }
-
-    let graph = create_graph(parsed_model).unwrap();
-    //let pgraph = graph.map(|ni, n| n.name(), |ei, e| e.clone());
-    //print_graph(&pgraph, 0.into());
-    //println!("{:?}", Dot::with_config(&pgraph, &[Config::EdgeNoLabel]));
-
-    toposort(&graph, None).unwrap().into_iter().for_each(|n| {
-        println!("{}", graph[n].name());
-    });
-}
-
-fn get_parsed_model(path: &str) -> onnx_format::ModelProto {
-    let mut buffer = Vec::new();
-    let mut file = File::open(path).unwrap();
-    file.read_to_end(&mut buffer).unwrap();
-
-    let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
-    parsed_model.expect("Failed to unwrap parsed_model in get_parsed_model()")
+        toposort(&graph, None)
+            .unwrap()
+            .into_iter()
+            .map(|n| graph[n].name())
+            .collect()
+    }
+    
 }
