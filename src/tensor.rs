@@ -4,7 +4,7 @@
 //!
 //! The main struct is [`Tensor`], which contains the name of the tensor and its data.
 //! The data is stored in the [`TensorData`] enum, which contains the actual array with generic element data type.
-use ndarray::{ArrayD, IxDyn};
+use ndarray::{ArrayBase, ArrayD, IxDyn, OwnedRepr};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
 
@@ -23,7 +23,7 @@ pub type TensorParametrizedShape = Vec<GraphDimension>;
 /// We'll refer to them as **constant tensors**.
 /// - **graph input/output tensors**: *partially* know its shape and have an unknown data type prior to execution. Its values are fed or fetched during execution.
 /// This is a tricky one, because the shape is not fully known on the model definition, but it is known before the model execution.
-/// This is because the shape is defined by the input data. We'll refer to them as **graph tensors**.
+/// This is because the shape is defined by the input data. We'll refer to them as **in/out tensors**.
 /// - **dynamically sized tensors**: have an unknown shape prior to execution.
 /// Its shape and values are determined during execution.
 /// These are used for intermediate values between nodes. We'll refer to them as **dynamic tensors**.
@@ -35,7 +35,8 @@ pub enum Tensor {
     /// These are used for attributes and initializers tensors.
     Constant(TensorData),
 
-    /// Tensor with a partially known shape on model definition,
+    /// Tensor with either a partially known shape on model definition,
+    /// or a fully known shape on model definition,
     /// but is defined by a chosen user input/output before executing it.
     /// Its data type is unknown before the model execution.
     ///
@@ -43,7 +44,7 @@ pub enum Tensor {
     /// fetched as output right after the model execution.
     /// These are used for graph input and output tensors.
     /// This tensor is defined to warn the programmer to check the shape of the TensorData when setted.
-    Graph(TensorParametrizedShape, Option<TensorData>),
+    InOut(TensorParametrizedShape, Option<TensorData>),
 
     /// Tensor with an unknown shape prior to execution. Its shape and values are determined during execution.
     ///
@@ -86,15 +87,8 @@ impl From<TensorProto> for Tensor {
     }
 }
 
-/// [`TensorShapeProto`] only defines the shape of a tensor in ONNX.
-/// The shape can be parametrized, so it may not be fully known before providing the parameters values.
-/// We are only intersted in parametrized tensors, because the other shapes are already defined in the model.
-/// So, this will fail if the shape is not parametrized.
-/// This is what we call a *graph tensor* (see [`Tensor`]).
-impl TryFrom<TensorShapeProto> for Tensor {
-    type Error = &'static str;
-
-    fn try_from(proto: TensorShapeProto) -> Result<Self, Self::Error> {
+impl From<TensorShapeProto> for Tensor {
+    fn from(proto: TensorShapeProto) -> Self {
         let dimensions = proto
             .dim
             .into_iter()
@@ -112,11 +106,17 @@ impl TryFrom<TensorShapeProto> for Tensor {
             })
             .collect::<TensorParametrizedShape>();
 
-        if dimensions.iter().any(|dim| dim.is_parametrized()) {
-            return Ok(Tensor::Graph(dimensions, None));
-        }
+        Tensor::InOut(dimensions, None)
+    }
+}
 
-        Err("Tensor is parametrized")
+impl Tensor {
+    pub fn is_parametrized_io(&self) -> bool {
+        if let Tensor::InOut(dims, _) = self {
+            dims.iter().any(|x| x.is_parametrized())
+        } else {
+            false
+        }
     }
 }
 
@@ -137,7 +137,7 @@ impl TryFrom<ValueInfoProto> for Tensor {
                     .ok_or("TensorTypeProto does not have a shape")?;
 
                 // this will fail if the shape is not parametrized as expected for a graph tensor
-                Tensor::try_from(shape_proto)
+                Ok(Tensor::from(shape_proto))
             }
             _ => Err("ValueInfoProto is not a tensor"),
         }
@@ -186,6 +186,29 @@ pub enum TensorData {
     Double(ArrayD<f64>),
     Uint32(ArrayD<u32>),
     Uint64(ArrayD<u64>),
+}
+
+pub trait TensorDataIntoDimensionality<T>
+where
+    T: TypeToTensorDataType + Copy,
+{
+    fn into_dimensionality<D>(self) -> ArrayBase<OwnedRepr<T>, D>
+    where
+        D: ndarray::Dimension;
+}
+
+pub trait TensorDataIntoRawData<T>
+where
+    T: TypeToTensorDataType + Copy,
+{
+    fn into_raw_data(self) -> Vec<u8>;
+}
+
+pub trait DynamicTensorData<T>
+where
+    T: TypeToTensorDataType + Copy,
+{
+    fn new_dyn(data: ArrayD<T>) -> TensorData;
 }
 
 /// Trait used to map Rust types to ONNX types (for example `f32` is mapped to `Float`)
@@ -346,6 +369,32 @@ macro_rules! impl_type_trait {
         impl TypeToTensorDataType for $type_ {
             fn tensor_data_type() -> TensorDataType {
                 TensorDataType::$variant
+            }
+        }
+
+        // implement conversion from ndarray to TensorData
+        impl From<ArrayD<$type_>> for TensorData {
+            fn from(array: ArrayD<$type_>) -> Self {
+                TensorData::$variant(array)
+            }
+        }
+
+        //implement dimensionality conversion from TensorData to ndarray
+        impl TensorDataIntoDimensionality<$type_> for TensorData {
+            fn into_dimensionality<D>(self) -> ArrayBase<OwnedRepr<$type_>, D>
+            where
+                D: ndarray::Dimension,
+            {
+                match self {
+                    TensorData::$variant(array) => array.into_dimensionality::<D>().unwrap(),
+                    _ => panic!("Invalid conversion"),
+                }
+            }
+        }
+        //implement dynamic conversion from TensorData to ndarray
+        impl DynamicTensorData<$type_> for TensorData {
+            fn new_dyn(data: ArrayD<$type_>) -> TensorData {
+                TensorData::$variant(data)
             }
         }
     };

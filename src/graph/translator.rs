@@ -2,20 +2,18 @@ use crate::onnx_format::ValueInfoProto;
 use crate::onnx_format::{self, ModelProto};
 use crate::operators::*;
 
-use crate::tensor::{Tensor, TensorData};
+use crate::tensor::{Tensor, TensorData, TensorParametrizedShape};
 
-use petgraph::algo::toposort;
-use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
-use petgraph::visit::GraphProp;
 use petgraph::Graph;
 use prost::Message;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::{fs::File, io::Read};
 
 use super::GraphError;
 
-type RuntimeGraph = Graph<Operator, Option<TensorData>>;
+type RuntimeGraph = Graph<Operator, RefCell<Option<TensorData>>>;
 
 enum NodeInfo {
     Input(u32),
@@ -52,15 +50,14 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
     let initializers = graph_proto.initializer;
     let nodes = graph_proto.node;
 
-    let (input_node_name, input_tensor) =
+    let (input_node_name, input_shape) =
         parse_model_io_node(graph_input).expect("Unable to parse input node");
-    let (output_node_name, output_tensor) =
+    let (output_node_name, output_shape) =
         parse_model_io_node(graph_output).expect("Unable to parse output node");
-    let input_node = model_graph.add_node(Operator::None);
-    let output_node = model_graph.add_node(Operator::None);
+    let input_node = model_graph.add_node(Operator::InputFeed(input_shape));
+    let output_node = model_graph.add_node(Operator::OutputCollector(output_shape));
 
     parsed_nodes.insert(input_node_name, NodeInfo::Input(input_node.index() as u32));
-    println!("Input index: {}", input_node.index());
     for node in nodes {
         //let pg = deps.add_node("petgraph");
 
@@ -391,7 +388,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
 
                 Operator::Concat(attrs)
             }
-            _ => return Err(GraphError::UnsupportedOperator),
+            op => return Err(GraphError::UnsupportedOperator(String::from(op))),
         };
 
         let n: NodeIndex = model_graph.add_node(operator);
@@ -413,14 +410,19 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
             model_graph.add_edge(
                 NodeIndex::from(parent_index),
                 NodeIndex::from(*node_index),
-                None,
+                RefCell::new(None),
             );
 
+            // Add edge to the model output node if the current node generates the output
             if children
                 .iter()
                 .any(|child| child.as_str() == output_node_name.as_str())
             {
-                model_graph.add_edge(NodeIndex::from(*node_index), output_node, None);
+                model_graph.add_edge(
+                    NodeIndex::from(*node_index),
+                    output_node,
+                    RefCell::new(None),
+                );
             }
         }
     }
@@ -428,19 +430,37 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
     Ok(model_graph)
 }
 
-fn parse_model_io_node(io_value_infos: Vec<ValueInfoProto>) -> Option<(String, Tensor)> {
+fn parse_model_io_node(
+    io_value_infos: Vec<ValueInfoProto>,
+) -> Option<(String, TensorParametrizedShape)> {
     io_value_infos
-        .into_iter()
-        .filter_map(|value_info| {
+        .iter()
+        .find_map(|value_info| {
+            let node_name = value_info.name.clone().unwrap_or_default();
+            let tensor = Tensor::try_from(value_info.clone()).ok()?;
+            if !tensor.is_parametrized_io() {
+                return None;
+            }
+            if let Tensor::InOut(shape, _) = tensor {
+                return Some((node_name, shape));
+            }
+            None
+        })
+        .or_else(|| {
+            let value_info = io_value_infos[0].clone();
             let node_name = value_info.name.clone().unwrap_or_default();
             let tensor = Tensor::try_from(value_info).ok()?;
-            Some((node_name, tensor))
+            if let Tensor::InOut(shape, _) = tensor {
+                return Some((node_name, shape));
+            }
+            None
         })
-        .next()
 }
 
 #[test]
 fn print_parsed_model_test() {
+    use petgraph::algo::toposort;
+
     let path_resnet = "tests/models/resnet18-v2-7.onnx";
     //let path_mobilenet = "tests/models/mobilenetv2-10.onnx";
 

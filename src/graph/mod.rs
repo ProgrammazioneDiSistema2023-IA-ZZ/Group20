@@ -3,7 +3,6 @@
 ///
 /// This module defines the mapping between the ONNX standard and a Graph structure used to infer a ONNX model.
 ///
-
 mod translator;
 pub use translator::*;
 
@@ -18,20 +17,24 @@ pub enum GraphError {
     ConversionError(String),
 
     #[error("{operand} for Operator {operator} of type {operator_type}")]
-    MissingOperand{operand:String, operator:String, operator_type:String}, 
+    MissingOperand {
+        operand: String,
+        operator: String,
+        operator_type: String,
+    },
 
-    #[error("")]
-    UnsupportedOperator,
+    #[error("Unsupported operator: {0}")]
+    UnsupportedOperator(String),
 
     #[error("for the child {child_name}")]
-    ParentNotFound{child_name:String},
+    ParentNotFound { child_name: String },
 
-    #[error("")]
+    #[error("Unexpected error")]
     UnexpectedError,
 
     #[error("DeconstructError: {0}")]
     DeconstructError(String),
 
-    #[error("unknwon operation error")]
+    #[error("Unknwon operation error")]
     Unknown,
 }
