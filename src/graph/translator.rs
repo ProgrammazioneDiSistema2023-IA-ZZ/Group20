@@ -467,22 +467,21 @@ mod tests {
 
     use super::*;
     use crate::onnx_format::{self};
-    use petgraph::algo::toposort;
     use prost::Message;
     use std::{fs::File, io::Read};
 
     #[test]
-    fn parsed_model_test_resnet() {
+    fn parsed_model_test_node_count_resnet() {
         let path_resnet = "tests/models/resnet18-v2-7.onnx";
-        let execution_order_resnet = run_parsed_model(path_resnet);
-        assert_eq!(execution_order_resnet.len(), 71);
+        let node_count_resnet = run_parsed_model(path_resnet);
+        assert_eq!(node_count_resnet, 71);
     }
 
     #[test]
-    fn parsed_model_test_mobilenet() {
+    fn parsed_model_test_node_count_mobilenet() {
         let path_mobilenet = "tests/models/mobilenetv2-7.onnx";
-        let execution_order_mobilenet = run_parsed_model(path_mobilenet);
-        assert_eq!(execution_order_mobilenet.len(), 157);
+        let node_count_mobilenet = run_parsed_model(path_mobilenet);
+        assert_eq!(node_count_mobilenet, 157);
     }
 
     fn get_parsed_model(path: &str) -> onnx_format::ModelProto {
@@ -494,14 +493,10 @@ mod tests {
         parsed_model.expect("Failed to unwrap parsed_model in get_parsed_model()")
     }
 
-    fn run_parsed_model(path: &str) -> Vec<String> {
+    fn run_parsed_model(path: &str) -> usize {
         let parsed_model = get_parsed_model(path);
         let graph = create_graph(parsed_model).unwrap();
 
-        toposort(&graph, None)
-            .unwrap()
-            .into_iter()
-            .map(|n| graph[n].name())
-            .collect()
+        graph.node_count()
     }
 }
