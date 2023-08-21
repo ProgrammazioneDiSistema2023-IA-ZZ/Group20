@@ -1,6 +1,7 @@
 use ndarray::{arr1, arr2, ArrayD, Ix1, IxDyn};
 use npy::NpyData;
 use onnx_runtime::operators::*;
+use onnx_runtime::providers::{NaiveProvider, Provider};
 use std::fs::File;
 use std::io::Read;
 use std::ops::Sub;
@@ -21,7 +22,7 @@ fn test_convolution_basic() {
     let w = load("tests/tensors/convolution/basic/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/basic/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = conv(x, w, None, attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -36,7 +37,7 @@ fn test_convolution_stride2() {
     let w = load("tests/tensors/convolution/stride2/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/stride2/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [0, 0, 0, 0], [2, 2]);
-    let my_y = conv(x, w, None, attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -51,7 +52,7 @@ fn test_convolution_pad1() {
     let w = load("tests/tensors/convolution/pad1/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/pad1/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = conv(x, w, None, attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -66,7 +67,7 @@ fn test_convolution_dil2() {
     let w = load("tests/tensors/convolution/dil2/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/dil2/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = conv(x, w, None, attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -81,7 +82,7 @@ fn test_convolution_dil2big() {
     let w = load("tests/tensors/convolution/dil2big/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/dil2big/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = conv(x, w, None, attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -96,7 +97,7 @@ fn test_convolution_dil2big_stride2() {
     let w = load("tests/tensors/convolution/dil2big_stride2/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/dil2big_stride2/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [2, 2]);
-    let my_y = conv(x, w, None, attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -120,7 +121,7 @@ fn test_convolution_dil2big_stride2_pad2() {
         &y_shape,
     );
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = conv(x, w, None, attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", &err);
     assert!(err < 1e-5);
@@ -135,7 +136,7 @@ fn test_convolution_complete() {
     let w = load("tests/tensors/convolution/complete/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/complete/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = conv(x, w, None, attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     //println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -154,7 +155,7 @@ fn test_convolution_complete_bias() {
         .unwrap();
     let y = load("tests/tensors/convolution/complete_bias/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = conv(x, w, Some(b), attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -173,7 +174,7 @@ fn test_convolution_huge() {
         .unwrap();
     let y = load("tests/tensors/convolution/huge/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = conv(x, w, Some(b), attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -192,7 +193,7 @@ fn test_convolution_big() {
         .unwrap();
     let y = load("tests/tensors/convolution/big/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = conv(x, w, Some(b), attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -205,7 +206,7 @@ fn test_clip() {
     let x = load("tests/tensors/clip/x.npy", &x_shape);
     let y = load("tests/tensors/clip/y.npy", &y_shape);
     let attrs = ClipAttributes::new(0.2, 0.8);
-    let my_y = clip(x, attrs);
+    let my_y = NaiveProvider::clip(x, attrs);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -219,7 +220,7 @@ fn test_add() {
     let x = load("tests/tensors/add/x.npy", &x_shape);
     let y = load("tests/tensors/add/y.npy", &y_shape);
     let z = load("tests/tensors/add/z.npy", &z_shape);
-    let my_z = add(x, y).unwrap();
+    let my_z = NaiveProvider::add(x, y).unwrap();
     let err = z.sub(my_z).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -229,7 +230,7 @@ fn test_add() {
 fn test_shape() {
     let x_shape = [64, 32, 5, 5];
     let x = ArrayD::<f32>::from_shape_fn(IxDyn(&x_shape), |_| 0.0);
-    let my_x_shape = shape(x);
+    let my_x_shape = NaiveProvider::shape(x);
     assert_eq!(
         my_x_shape.into_raw_vec(),
         x_shape.iter().map(|x| *x as i64).collect::<Vec<i64>>()
@@ -240,7 +241,7 @@ fn test_shape() {
 fn test_gather() {
     let x = ArrayD::from_shape_vec(IxDyn(&[4]), vec![64, 32, 5, 5]).unwrap();
     let attrs = GatherAttributes::new(0);
-    let gathered = gather(x, 0, attrs).unwrap();
+    let gathered = NaiveProvider::gather(x, 0, attrs).unwrap();
     let expected = ArrayD::from_shape_fn(IxDyn(&[]), |_| 64);
     assert_eq!(gathered, expected);
 }
@@ -249,7 +250,7 @@ fn test_gather() {
 fn test_unqueeze() {
     let x = ArrayD::from_shape_fn(IxDyn(&[]), |_| 64);
     let attrs = UnsqueezeAttributes::new(0);
-    let unsqueezed = unsqueeze(x, attrs).unwrap();
+    let unsqueezed = NaiveProvider::unsqueeze(x, attrs).unwrap();
     let expected = ArrayD::<usize>::from_shape_vec(IxDyn(&[1]), vec![64]).unwrap();
     assert_eq!(unsqueezed, expected);
 }
@@ -259,7 +260,7 @@ fn test_concat() {
     let x1 = ArrayD::from_shape_vec(IxDyn(&[1]), vec![64]).unwrap();
     let x2 = ArrayD::from_shape_vec(IxDyn(&[1]), vec![-1]).unwrap();
     let attrs = ConcatAttributes::new(0);
-    let concated = concat(vec![x1, x2], attrs).unwrap();
+    let concated = NaiveProvider::concat(vec![x1, x2], attrs).unwrap();
     let expected = ArrayD::<i64>::from_shape_vec(IxDyn(&[2]), vec![64, -1]).unwrap();
     assert_eq!(concated, expected);
 }
@@ -270,7 +271,7 @@ fn test_global_average_pool() {
     let y_shape = [8, 4, 1, 1];
     let x = load("tests/tensors/glob_avg_pool/x.npy", &x_shape);
     let y = load("tests/tensors/glob_avg_pool/y.npy", &y_shape);
-    let my_y = global_average_pool(x).unwrap();
+    let my_y = NaiveProvider::global_average_pool(x).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -283,7 +284,7 @@ fn test_reshape() {
     let shape = ArrayD::from_shape_vec(IxDyn(&[2]), vec![8, -1]).unwrap();
     let x = load("tests/tensors/reshape/x.npy", &x_shape);
     let y = load("tests/tensors/reshape/y.npy", &y_shape);
-    let my_y = reshape(x, shape).unwrap();
+    let my_y = NaiveProvider::reshape(x, shape).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -313,7 +314,7 @@ fn test_gemm() {
     let attrs = GemmAttributes::new(2.0, 0.1, 0, 0);
     let y_shape = [2, 4];
     let y = load("tests/tensors/gemm/y.npy", &y_shape);
-    let my_y = gemm(a, b, c, attrs).unwrap();
+    let my_y = NaiveProvider::gemm(a, b, c, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -336,7 +337,7 @@ fn test_batchnorm_small() {
     let y: ArrayD<f32> = load("tests/tensors/bn/small/y.npy", &shape_y);
     let attrs = BatchNormAttributes::new(1e-5, 0.9, 1);
 
-    let my_y = batch_norm(x, scale, b, mean, var, attrs).unwrap();
+    let my_y = NaiveProvider::batch_norm(x, scale, b, mean, var, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -359,7 +360,7 @@ fn test_batchnorm_normal() {
     let y: ArrayD<f32> = load("tests/tensors/bn/normal/y.npy", &shape_y);
     let attrs = BatchNormAttributes::new(1e-5, 0.9, 1);
 
-    let my_y = batch_norm(x, scale, b, mean, var, attrs).unwrap();
+    let my_y = NaiveProvider::batch_norm(x, scale, b, mean, var, attrs).unwrap();
 
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
@@ -372,7 +373,7 @@ fn test_relu() {
     let shape_y = [4, 4, 5, 5];
     let x: ArrayD<f32> = load("tests/tensors/relu/x.npy", &shape_x);
     let y: ArrayD<f32> = load("tests/tensors/relu/y.npy", &shape_y);
-    let my_y = relu(x);
+    let my_y = NaiveProvider::relu(x);
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -385,7 +386,7 @@ fn test_max_pool() {
     let x: ArrayD<f32> = load("tests/tensors/maxpool/x.npy", &shape_x);
     let y: ArrayD<f32> = load("tests/tensors/maxpool/y.npy", &shape_y);
     let attrs = MaxPoolAttributes::new([3, 3], [1, 1, 1, 1], [2, 2]);
-    let my_y = max_pool(x, attrs).unwrap();
+    let my_y = NaiveProvider::max_pool(x, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);

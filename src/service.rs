@@ -1,19 +1,14 @@
-use std::{borrow::BorrowMut, fs::File, io::Write, ops::ControlFlow};
-
-use ndarray::{Array, ArrayBase, ArrayD, IxDyn};
+use ndarray::{ArrayD, IxDyn};
 use ndarray_csv::Array2Writer;
 use petgraph::algo::toposort;
+use std::{borrow::BorrowMut, fs::File, io::Write, ops::ControlFlow};
 
 use crate::{
     graph::create_graph,
     onnx_format::ModelProto,
-    operators::{
-        add, batch_norm, clip, concat, conv, gather, gemm, global_average_pool, max_pool, relu,
-        reshape, shape, unsqueeze, OperationError, Operator,
-    },
-    tensor::{
-        DynamicTensorData, Tensor, TensorData, TensorDataIntoDimensionality, TypeToTensorDataType,
-    },
+    operators::{OperationError, Operator},
+    providers::{DefaultProvider, Provider},
+    tensor::{DynamicTensorData, Tensor, TensorData, TensorDataIntoDimensionality},
 };
 
 pub struct Service {
@@ -26,13 +21,23 @@ impl Service {
         Self { model, config }
     }
 
-    pub fn run<S>(
+    /// Runs the service on the input data, using the input parameters and the default execution provider (naive).
+    ///
+    pub fn run(
+        &self,
+        input: ArrayD<f32>,
+        input_parameters: Vec<(String, f32)>,
+    ) -> Result<TensorData, &'static str> {
+        self.run_with_provider::<DefaultProvider>(input, input_parameters)
+    }
+
+    pub fn run_with_provider<P>(
         &self,
         input: ArrayD<f32>,
         input_parameters: Vec<(String, f32)>,
     ) -> Result<TensorData, &'static str>
     where
-        S: TypeToTensorDataType,
+        P: Provider,
     {
         println!("Running service with {} threads", self.config.num_threads);
         let mut debug_file = File::create("tests/log.txt").unwrap();
@@ -66,7 +71,8 @@ impl Service {
                 } else {
                     incoming_data
                 };
-                let operation_result = execute_operation(incoming_data, &operations_graph[node]).map_err(|e| e.to_string());
+                
+                let operation_result = execute_operation::<P>(incoming_data, &operations_graph[node]).map_err(|e| e.to_string());
 
                 let Ok(outgoing_data) = operation_result else { return ControlFlow::Break(operation_result.map(|_| ()))};
                 executed_operations += 1;
@@ -102,10 +108,13 @@ impl Service {
     }
 }
 
-fn execute_operation(
+fn execute_operation<ChosenProvider>(
     inputs: Vec<TensorData>,
     operator: &Operator,
-) -> Result<TensorData, OperationError> {
+) -> Result<TensorData, OperationError>
+where
+    ChosenProvider: Provider,
+{
     match operator {
         //TODO: check for the shape correctness before passing the incoming data for InputFeed and OutputCollector
         Operator::InputFeed(_shape) => Ok(inputs[0].clone()),
@@ -121,26 +130,26 @@ fn execute_operation(
                 _ => todo!("conv2d: invalid bias tensor type"),
             });
 
-            let result = conv(operand, weights, bias, attrs.clone())?;
+            let result = ChosenProvider::conv(operand, weights, bias, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::Clip(attrs) => {
             let TensorData::Float(operand) = inputs[0].clone() else {todo!("clip: invalid input tensor type")};
-            let result = clip(operand, attrs.clone());
+            let result = ChosenProvider::clip(operand, attrs.clone());
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::Add => {
             let TensorData::Float(lhs) = inputs[0].clone() else {todo!("add: invalid input tensor type")};
             let TensorData::Float(rhs) = inputs[1].clone() else {todo!("add: invalid input tensor type")};
-            let result = add(lhs, rhs)?;
+            let result = ChosenProvider::add(lhs, rhs)?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::Shape => {
             let TensorData::Float(operand) = inputs[0].clone() else {todo!("shape: invalid input tensor type")};
-            let result = shape(operand);
+            let result = ChosenProvider::shape(operand);
             let tensor = TensorData::Int64(result);
             Ok(tensor)
         }
@@ -164,7 +173,7 @@ fn execute_operation(
                 _ => todo!("gather: invalid index tensor type"),
             };
 
-            let result = gather(operand, index, attrs.clone())?;
+            let result = ChosenProvider::gather(operand, index, attrs.clone())?;
             let tensor = TensorData::Int64(result.map(|e| *e as i64).into_dyn());
             Ok(tensor)
         }
@@ -175,7 +184,7 @@ fn execute_operation(
                 _ => todo!("gather: invalid input tensor type"),
             };
 
-            let result = unsqueeze(operand, attrs.clone())?;
+            let result = ChosenProvider::unsqueeze(operand, attrs.clone())?;
             let tensor = TensorData::Int64(result.map(|e| *e as i64).into_dyn());
             Ok(tensor)
         }
@@ -186,13 +195,13 @@ fn execute_operation(
                 .map(|input| input.into_dimensionality::<IxDyn>())
                 .collect::<Vec<ArrayD<_>>>();
             //TODO: fix dynamic operation. Maybe use a byte array for all the operations like this that can take any input type
-            let result = concat::<f32>(operands, attrs.clone())?;
+            let result = ChosenProvider::concat::<f32>(operands, attrs.clone())?;
             let tensor = TensorData::new_dyn(result);
             Ok(tensor)
         }
         Operator::GlobalAveragePool => {
             let TensorData::Float(operand) = inputs[0].clone() else {todo!("global_average_pool: invalid input tensor type")};
-            let result = global_average_pool(operand)?;
+            let result = ChosenProvider::global_average_pool(operand)?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -200,7 +209,7 @@ fn execute_operation(
             let TensorData::Float(operand) = inputs[0].clone() else {todo!("reshape: invalid input tensor type")};
             let TensorData::Int64(shape) = inits.shape.clone() else {todo!("reshape: invalid shape tensor type")};
 
-            let result = reshape(operand, shape)?;
+            let result = ChosenProvider::reshape(operand, shape)?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -209,13 +218,13 @@ fn execute_operation(
             let TensorData::Float(matrix_b) = inits.b.clone() else {todo!("gemm: invalid B matrix tensor type")};
             let TensorData::Float(matrix_c) = inits.c.clone() else {todo!("gemm: invalid C matrix tensor type")};
 
-            let result = gemm(matrix_a, matrix_b, matrix_c, attrs.clone())?;
+            let result = ChosenProvider::gemm(matrix_a, matrix_b, matrix_c, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::MaxPool(attrs) => {
             let TensorData::Float(operand) = inputs[0].clone() else {todo!("max_pool: invalid input tensor type")};
-            let result = max_pool(operand, attrs.clone())?;
+            let result = ChosenProvider::max_pool(operand, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -227,13 +236,14 @@ fn execute_operation(
             let TensorData::Float(mean) = inits.mean.clone() else {todo!("batch_norm: invalid mean tensor type")};
             let TensorData::Float(var) = inits.var.clone() else {todo!("batch_norm: invalid var tensor type")};
 
-            let result = batch_norm(operand, scale, bias, mean, var, attrs.clone())?;
+            let result =
+                ChosenProvider::batch_norm(operand, scale, bias, mean, var, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::ReLU => {
             let TensorData::Float(operand) = inputs[0].clone() else {todo!("relu: invalid input tensor type")};
-            let result = relu(operand);
+            let result = ChosenProvider::relu(operand);
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -279,7 +289,7 @@ fn test_service() {
     let Tensor::Constant(TensorData::Float(input)) = input else {panic!("Invalid input type")};
 
     let input_parameters = vec![];
-    let result = service.run::<f32>(input, input_parameters);
+    let result = service.run(input, input_parameters);
 
     //print the result
     println!("{:?}", result);

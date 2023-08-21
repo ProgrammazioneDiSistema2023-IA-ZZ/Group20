@@ -1,7 +1,10 @@
 use criterion::{criterion_group, Criterion};
 use ndarray::{ArrayD, Ix1, IxDyn};
 use npy::NpyData;
-use onnx_runtime::operators::*;
+use onnx_runtime::{
+    operators::*,
+    providers::{NaiveProvider, Provider},
+};
 use std::{fs::File, io::Read, ops::Sub, time::Duration};
 
 fn load(path: &str, shape: &[usize]) -> ArrayD<f32> {
@@ -23,7 +26,7 @@ fn convolution_big() {
         .unwrap();
     let y = load("tests/tensors/convolution/big/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = conv(x, w, Some(b), attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     println!("avg error = {}", err);
     assert!(err < 1e-4);
@@ -42,7 +45,7 @@ fn convolution_huge() {
         .unwrap();
     let y = load("tests/tensors/convolution/huge/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = conv(x, w, Some(b), attrs).unwrap();
+    let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     println!("avg error = {}", err);
     assert!(err < 1e-4);
@@ -52,7 +55,7 @@ fn bench_convolution(c: &mut Criterion) {
     let mut group = c.benchmark_group("Convolution");
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(100));
-    group.bench_function("ConvBig", move |b| b.iter(|| convolution_big()));
+    group.bench_function("ConvBig", move |b| b.iter(convolution_big));
     // group.bench_function("ConvHuge", move|b| b.iter_batched(||{}, |_| convolution_huge(), BatchSize::NumBatches(1)));
     group.finish();
 }

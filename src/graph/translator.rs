@@ -122,8 +122,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 }
 
                 if let [scale, b, mean, var] = &useful_initializers[..] {
-                    inps =
-                        BatchNormInputs::new(scale.clone(), b.clone(), mean.clone(), var.clone());
+                    inps = BatchNormInits::new(scale.clone(), b.clone(), mean.clone(), var.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
                         "Unable to retrieve inputs".to_string(),
@@ -185,9 +184,9 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 }
 
                 if let [weights, bias] = &useful_initializers[..] {
-                    inps = ConvInputs::new(weights.clone(), Some(bias.clone()));
+                    inps = ConvInits::new(weights.clone(), Some(bias.clone()));
                 } else if let [weights] = &useful_initializers[..] {
-                    inps = ConvInputs::new(weights.clone(), None);
+                    inps = ConvInits::new(weights.clone(), None);
                 } else {
                     return Err(GraphError::DeconstructError(
                         "Unable to retrieve inputs".to_string(),
@@ -255,7 +254,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 }
 
                 if let [shape] = &useful_initializers[..] {
-                    inps = ReshapeInputs::new(shape.clone());
+                    inps = ReshapeInits::new(shape.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
                         "Unable to retrieve inputs".to_string(),
@@ -306,7 +305,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 }
 
                 if let [b, c] = &useful_initializers[..] {
-                    inps = GemmInputs::new(b.clone(), c.clone());
+                    inps = GemmInits::new(b.clone(), c.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
                         "Unable to retrieve inputs".to_string(),
@@ -364,7 +363,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 }
 
                 if let [index] = &useful_initializers[..] {
-                    inps = GatherInputs::new(index.clone());
+                    inps = GatherInits::new(index.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
                         "Unable to retrieve inputs".to_string(),
