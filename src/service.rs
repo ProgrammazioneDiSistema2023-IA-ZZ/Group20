@@ -38,13 +38,7 @@ impl Service {
     where
         P: Provider,
     {
-        println!("Running service with {} threads", self.config.num_threads);
-        let mut debug_file = File::create("tests/log.txt").unwrap();
-
         let mut operations_graph = create_graph(self.model.clone()).unwrap();
-
-        let n_operations = operations_graph.node_count();
-        let mut executed_operations = 0;
 
         let mut final_output = None;
         toposort(&operations_graph, None)
@@ -72,23 +66,7 @@ impl Service {
                 };
                 
                 let operation_result = execute_operation::<P>(incoming_data, &operations_graph[node]).map_err(|e| e.to_string());
-
                 let Ok(outgoing_data) = operation_result else { return ControlFlow::Break(operation_result.map(|_| ()))};
-                executed_operations += 1;
-                println!(
-                    "Executed {} out of {} operations",
-                    executed_operations, n_operations
-                );
-                //append to a file the output of the current operation
-                writeln!(
-                    debug_file,
-                    "Operation number: {:?} out of {:?}",
-                    executed_operations, n_operations
-                )
-                .unwrap();
-                writeln!(debug_file, "Operation: {:?}", operations_graph[node]).unwrap();
-                writeln!(debug_file, "Intermediate output:").unwrap();
-                writeln!(debug_file, "{:?}", outgoing_data).unwrap();
 
                 // for each outgoing edge, set the data to the outgoing data
                 operations_graph
@@ -332,20 +310,20 @@ mod tests {
         let config = Config { num_threads: 1 };
         let service = Service::new(model_proto, config);
         let input_parameters = vec![];
+
         let result = service
             .run(preprocessed_image.into_dyn(), input_parameters)
             .unwrap();
         let TensorData::Float(result) = result else {panic!("Invalid result type")};
         let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
         let result = postprocessing(result);
+
         write_to_csv(
             &result.clone().insert_axis(ndarray::Axis(0)),
             "tests/results_cat.csv",
         );
         
         let top_5_results = postprocessing_top_k(result, 5);
-        
-        // print the top 5 predictions
         println!("Top 5 predictions:");
         for (i, (class, prob)) in top_5_results.iter().enumerate() {
             println!("{}. class: {}, probability: {}", i + 1, class, prob);
