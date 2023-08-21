@@ -209,18 +209,6 @@ fn execute_operation(
             let TensorData::Float(matrix_b) = inits.b.clone() else {todo!("gemm: invalid B matrix tensor type")};
             let TensorData::Float(matrix_c) = inits.c.clone() else {todo!("gemm: invalid C matrix tensor type")};
 
-            //if this matrix is 1D, it means that it is a vector and we need to convert it to a 2D matrix
-            let matrix_c = matrix_c
-                .clone()
-                .into_dimensionality::<ndarray::Ix2>()
-                .unwrap_or_else(|_| {
-                    matrix_c
-                        .into_dimensionality::<ndarray::Ix1>()
-                        .unwrap()
-                        .insert_axis(ndarray::Axis(0))
-                })
-                .into_dyn();
-
             let result = gemm(matrix_a, matrix_b, matrix_c, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
