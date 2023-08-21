@@ -176,7 +176,7 @@ fn test_convolution_huge() {
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
     let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    //println!("avg error = {}", err);
     assert!(err < 1e-4);
 }
 
@@ -195,7 +195,7 @@ fn test_convolution_big() {
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
     let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    //println!("avg error = {}", err);
     assert!(err < 1e-4);
 }
 

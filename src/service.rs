@@ -1,5 +1,4 @@
 use ndarray::{ArrayD, IxDyn};
-use ndarray_csv::Array2Writer;
 use petgraph::algo::toposort;
 use std::{borrow::BorrowMut, fs::File, io::Write, ops::ControlFlow};
 
@@ -8,7 +7,7 @@ use crate::{
     onnx_format::ModelProto,
     operators::{OperationError, Operator},
     providers::{DefaultProvider, Provider},
-    tensor::{DynamicTensorData, Tensor, TensorData, TensorDataIntoDimensionality},
+    tensor::{DynamicTensorData, TensorData, TensorDataIntoDimensionality},
 };
 
 pub struct Service {
@@ -254,71 +253,149 @@ pub struct Config {
     pub num_threads: usize,
 }
 
-#[test]
-fn test_service() {
-    use crate::onnx_format::ModelProto;
+
+#[cfg(test)]
+mod tests {
     use csv::WriterBuilder;
+    use image::codecs::jpeg::JpegEncoder;
+    use ndarray_csv::Array2Writer;
     use prost::Message;
-    use std::fs::File;
-    use std::io::Read;
 
-    let mut buffer = Vec::new();
-    let mut file = File::open("tests/models/mobilenetv2-7.onnx").unwrap();
-    file.read_to_end(&mut buffer).unwrap();
+    use crate::onnx_format::TensorProto;
+    use crate::prepare::{postprocessing, postprocessing_top_k};
+    use crate::tensor::{Tensor, TensorData};
+    use crate::{
+        onnx_format::ModelProto,
+        service::{Config, Service},
+    };
+    use std::{fs::File, io::Read};
 
-    let parsed_model = ModelProto::decode(buffer.as_slice()).unwrap();
+    #[test]
+    fn test_service() {
+        use crate::tensor::{Tensor, TensorData};
+        use prost::Message;
+        use std::fs::File;
+        use std::io::Read;
 
-    let output_file = File::create("tests/results.csv").unwrap();
-    let mut writer = WriterBuilder::new()
-        .has_headers(false)
-        .from_writer(output_file);
+        let parsed_model = read_model_proto("tests/models/mobilenetv2-7.onnx");
 
-    let config = Config { num_threads: 1 };
-    let service = Service::new(parsed_model, config);
+        let config = Config { num_threads: 1 };
+        let service = Service::new(parsed_model, config);
 
-    //read input from test.pb as an ArrayD of shape [1, 3, 224, 224]
-    let mut input_buffer = Vec::new();
-    let mut input_file = File::open("tests/testset/mobilenet/input_0.pb").unwrap();
+        //read input from test.pb as an ArrayD of shape [1, 3, 224, 224]
+        let input = read_testset("tests/testset/mobilenet/input_0.pb");
 
-    input_file.read_to_end(&mut input_buffer).unwrap();
-    // decode input as a TensorProto
-    let input = crate::onnx_format::TensorProto::decode(input_buffer.as_slice()).unwrap();
-    // convert the input to a TensorData
-    let input = Tensor::from(input);
-    // convert the TensorData to an ArrayD
-    let Tensor::Constant(TensorData::Float(input)) = input else {panic!("Invalid input type")};
+        // convert the TensorData to an ArrayD
+        let Tensor::Constant(TensorData::Float(input)) = input else {panic!("Invalid input type")};
 
-    let input_parameters = vec![];
-    let result = service.run(input, input_parameters);
+        let input_parameters = vec![];
+        let result = service.run(input, input_parameters);
 
-    //print the result
-    println!("{:?}", result);
+        //print the result
+        println!("{:?}", result);
 
-    //and write it to a file
-    let TensorData::Float(result) = result.unwrap() else {panic!("Invalid result type")};
-    let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
-    writer.serialize_array2(&result).unwrap();
+        //and write it to a file
+        let TensorData::Float(result) = result.unwrap() else {panic!("Invalid result type")};
+        let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
+        write_to_csv(&result, "tests/results.csv");
 
-    let mut expected_input_file = File::open("tests/testset/mobilenet/output_0.pb").unwrap();
-    let mut expected_input_buffer = Vec::new();
-    expected_input_file
-        .read_to_end(&mut expected_input_buffer)
-        .unwrap();
-    let expected_output =
-        crate::onnx_format::TensorProto::decode(expected_input_buffer.as_slice()).unwrap();
+        let mut expected_input_file = File::open("tests/testset/mobilenet/output_0.pb").unwrap();
+        let mut expected_input_buffer = Vec::new();
+        expected_input_file
+            .read_to_end(&mut expected_input_buffer)
+            .unwrap();
+        let expected_output =
+            crate::onnx_format::TensorProto::decode(expected_input_buffer.as_slice()).unwrap();
 
-    let Tensor::Constant(TensorData::Float(expected_output)) = Tensor::from(expected_output) else {panic!("Invalid expected output type")};
-    let expected_output = expected_output
-        .into_dimensionality::<ndarray::Ix2>()
-        .unwrap();
+        let Tensor::Constant(TensorData::Float(expected_output)) = Tensor::from(expected_output) else {panic!("Invalid expected output type")};
+        let expected_output = expected_output
+            .into_dimensionality::<ndarray::Ix2>()
+            .unwrap();
+        write_to_csv(&expected_output, "tests/results_expected.csv");
 
-    let expected_output_file = File::create("tests/results_expected.csv").unwrap();
-    let mut writer = WriterBuilder::new()
-        .has_headers(false)
-        .from_writer(expected_output_file);
-    writer.serialize_array2(&expected_output).unwrap();
+        //check if the result is the same as the expected output
+        let err = (result - expected_output).mapv(|x| x.abs()).mean().unwrap();
+        assert!(err < 1e-4);
+    }
 
-    //check if the result is the same as the expected output
-    let err = (result - expected_output).mapv(|x| x.abs()).mean().unwrap();
-    assert!(err < 1e-4);
+    #[test]
+    fn run_on_cat_image() {
+        use crate::prepare::preprocessing;
+
+        let image = image::open("tests/images/siamese-cat.jpg").unwrap();
+        let preprocessed_image = preprocessing(image);
+
+        //save the preprocessed tensor as an image file
+        //preprocessed_image_to_file(&preprocessed_image, "tests/preprocessed_cat.jpg");
+
+        let model_proto = read_model_proto("tests/models/resnet18-v2-7.onnx");
+        let config = Config { num_threads: 1 };
+        let service = Service::new(model_proto, config);
+        let input_parameters = vec![];
+        let result = service
+            .run(preprocessed_image.into_dyn(), input_parameters)
+            .unwrap();
+        let TensorData::Float(result) = result else {panic!("Invalid result type")};
+        let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
+        let result = postprocessing(result);
+        write_to_csv(
+            &result.clone().insert_axis(ndarray::Axis(0)),
+            "tests/results_cat.csv",
+        );
+        
+        let top_5_results = postprocessing_top_k(result, 5);
+        
+        // print the top 5 predictions
+        println!("Top 5 predictions:");
+        for (i, (class, prob)) in top_5_results.iter().enumerate() {
+            println!("{}. class: {}, probability: {}", i + 1, class, prob);
+        }
+
+        
+    }
+
+    fn read_model_proto(path: &str) -> ModelProto {
+        let mut buffer = Vec::new();
+        let mut file = File::open(path).unwrap();
+        file.read_to_end(&mut buffer).unwrap();
+
+        ModelProto::decode(buffer.as_slice()).unwrap()
+    }
+
+    fn read_testset(path: &str) -> Tensor {
+        let mut buffer = Vec::new();
+        let mut file = File::open(path).unwrap();
+        file.read_to_end(&mut buffer).unwrap();
+
+        Tensor::from(TensorProto::decode(buffer.as_slice()).unwrap())
+    }
+
+    fn write_to_csv(tensor: &ndarray::Array2<f32>, path: &str) {
+        let output_file = File::create(path).unwrap();
+        let mut writer = WriterBuilder::new()
+            .has_headers(false)
+            .from_writer(output_file);
+        writer.serialize_array2(tensor).unwrap();
+    }
+
+    #[allow(dead_code)]
+    fn preprocessed_image_to_file(tensor: &ndarray::Array4<f32>, path: &str) {
+        let output_file = File::create(path).unwrap();
+        let mut encoder = JpegEncoder::new(output_file);
+        encoder
+            .encode(
+                tensor
+                    .clone()
+                    .remove_axis(ndarray::Axis(0))
+                    .permuted_axes([2, 0, 1])
+                    .mapv(|x| (x * 255.0) as u8)
+                    .into_raw_vec()
+                    .as_slice(),
+                224,
+                224,
+                image::ColorType::Rgb8,
+            )
+            .unwrap();
+    }
+
 }
