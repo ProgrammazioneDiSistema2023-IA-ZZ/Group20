@@ -1,6 +1,6 @@
 use ndarray::{ArrayD, IxDyn};
-use petgraph::algo::toposort;
-use std::{borrow::BorrowMut, fs::File, io::Write, ops::ControlFlow};
+use petgraph::{algo::toposort, Direction};
+use std::{borrow::BorrowMut, ops::ControlFlow};
 
 use crate::{
     graph::create_graph,
@@ -21,7 +21,6 @@ impl Service {
     }
 
     /// Runs the service on the input data, using the input parameters and the default execution provider (naive).
-    ///
     pub fn run(
         &self,
         input: ArrayD<f32>,
@@ -30,6 +29,7 @@ impl Service {
         self.run_with_provider::<DefaultProvider>(input, input_parameters)
     }
 
+    /// Runs the service on the input data, using the input parameters and the chosen execution provider.
     pub fn run_with_provider<P>(
         &self,
         input: ArrayD<f32>,
@@ -41,22 +41,22 @@ impl Service {
         let mut operations_graph = create_graph(self.model.clone()).unwrap();
 
         let mut final_output = None;
-        toposort(&operations_graph, None)
-            .unwrap()
-            .into_iter()
+        let ordered_operation_list =
+            toposort(&operations_graph, None).map_err(|_| "The graph is not a DAG")?;
+
+        ordered_operation_list.into_iter()
             .try_for_each(|node| {
                 let incoming_data = operations_graph
-                    .borrow_mut()
-                    .edges_directed(node, petgraph::Direction::Incoming)
+                    .edges_directed(node, Direction::Incoming)
+                    // TODO: wait for the input to be ready for execution in a multithreaded environment
                     .map(|e| {
-                        //TODO: wait for the input to be ready for execution in a multithreaded environment
                         e.weight()
                             .borrow()
                             .clone()
-                            .expect("Executing an operation without input")
+                            .expect("Trying to get data as an input for an operation, but the data is being used by another operation")
                     })
                     .collect::<Vec<TensorData>>();
-
+                
                 // if the incoming data is empty, it means that the current node is an input node
                 // and we need to pass the input data to it
                 let incoming_data = if incoming_data.is_empty() {
@@ -64,14 +64,14 @@ impl Service {
                 } else {
                     incoming_data
                 };
-                
+
                 let operation_result = execute_operation::<P>(incoming_data, &operations_graph[node]).map_err(|e| e.to_string());
-                let Ok(outgoing_data) = operation_result else { return ControlFlow::Break(operation_result.map(|_| ()))};
+                let Ok(outgoing_data) = operation_result else { return ControlFlow::Break(operation_result)};
 
                 // for each outgoing edge, set the data to the outgoing data
                 operations_graph
                     .borrow_mut()
-                    .edges_directed(node, petgraph::Direction::Outgoing)
+                    .edges_directed(node, Direction::Outgoing)
                     .for_each(|e| {
                         e.weight().replace(Some(outgoing_data.clone()));
                     });
@@ -98,17 +98,8 @@ where
         Operator::OutputCollector(_shape) => Ok(inputs[0].clone()),
 
         Operator::Convolution(inits, attrs) => {
-            let TensorData::Float(operand) = inputs[0].clone() else {todo!("conv2d: invalid input tensor type")};
-            let TensorData::Float(weights) = inits.weights.clone() else {todo!("conv2d: invalid weights tensor type")};
 
-            //operand to Array4
-            let bias = inits.bias.clone().map(|b| match b {
-                TensorData::Float(b) => b.into_dimensionality::<ndarray::Ix1>().unwrap(),
-                _ => todo!("conv2d: invalid bias tensor type"),
-            });
-
-            let result = ChosenProvider::conv(operand, weights, bias, attrs.clone())?;
-            let tensor = TensorData::Float(result);
+            let tensor = ChosenProvider::conv(inputs[0].clone(), inits.weights.clone(), inits.bias.clone(), attrs.clone())?;
             Ok(tensor)
         }
         Operator::Clip(attrs) => {
@@ -171,6 +162,7 @@ where
                 .into_iter()
                 .map(|input| input.into_dimensionality::<IxDyn>())
                 .collect::<Vec<ArrayD<_>>>();
+
             //TODO: fix dynamic operation. Maybe use a byte array for all the operations like this that can take any input type
             let result = ChosenProvider::concat::<f32>(operands, attrs.clone())?;
             let tensor = TensorData::new_dyn(result);
@@ -230,7 +222,6 @@ where
 pub struct Config {
     pub num_threads: usize,
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -322,14 +313,12 @@ mod tests {
             &result.clone().insert_axis(ndarray::Axis(0)),
             "tests/results_cat.csv",
         );
-        
+
         let top_5_results = postprocessing_top_k(result, 5);
         println!("Top 5 predictions:");
         for (i, (class, prob)) in top_5_results.iter().enumerate() {
             println!("{}. class: {}, probability: {}", i + 1, class, prob);
         }
-
-        
     }
 
     fn read_model_proto(path: &str) -> ModelProto {
@@ -375,5 +364,4 @@ mod tests {
             )
             .unwrap();
     }
-
 }

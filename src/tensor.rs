@@ -4,7 +4,7 @@
 //!
 //! The main struct is [`Tensor`], which contains the name of the tensor and its data.
 //! The data is stored in the [`TensorData`] enum, which contains the actual array with generic element data type.
-use ndarray::{ArrayBase, ArrayD, IxDyn, OwnedRepr, RawData};
+use ndarray::{ArrayBase, ArrayD, IxDyn, OwnedRepr};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
 
@@ -175,16 +175,34 @@ pub enum TensorDataType {
 #[derive(Debug, Clone)]
 pub enum TensorData {
     Float(ArrayD<f32>),
-    Uint8(ArrayD<u8>),
+    Double(ArrayD<f64>),
     Int8(ArrayD<i8>),
-    Uint16(ArrayD<u16>),
     Int16(ArrayD<i16>),
     Int32(ArrayD<i32>),
     Int64(ArrayD<i64>),
-    String(ArrayD<String>),
-    Double(ArrayD<f64>),
+    Uint8(ArrayD<u8>),
+    Uint16(ArrayD<u16>),
     Uint32(ArrayD<u32>),
     Uint64(ArrayD<u64>),
+    String(ArrayD<String>),
+}
+
+impl From<&TensorData> for TensorDataType {
+    fn from(data: &TensorData) -> Self {
+        match data {
+            TensorData::Float(_) => TensorDataType::Float,
+            TensorData::Double(_) => TensorDataType::Double,
+            TensorData::Int8(_) => TensorDataType::Int8,
+            TensorData::Int16(_) => TensorDataType::Int16,
+            TensorData::Int32(_) => TensorDataType::Int32,
+            TensorData::Int64(_) => TensorDataType::Int64,
+            TensorData::Uint8(_) => TensorDataType::Uint8,
+            TensorData::Uint16(_) => TensorDataType::Uint16,
+            TensorData::Uint32(_) => TensorDataType::Uint32,
+            TensorData::Uint64(_) => TensorDataType::Uint64,
+            TensorData::String(_) => TensorDataType::String,
+        }
+    }
 }
 
 pub trait TensorDataIntoDimensionality<T>
@@ -194,13 +212,6 @@ where
     fn into_dimensionality<D>(self) -> ArrayBase<OwnedRepr<T>, D>
     where
         D: ndarray::Dimension;
-}
-
-pub trait TensorDataIntoRawData<T>
-where
-    T: TypeToTensorDataType + Copy,
-{
-    fn into_raw_data(self) -> Vec<u8>;
 }
 
 pub trait DynamicTensorData<T>

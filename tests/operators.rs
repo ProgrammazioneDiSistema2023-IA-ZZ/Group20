@@ -2,6 +2,7 @@ use ndarray::{arr1, arr2, ArrayD, Ix1, IxDyn};
 use npy::NpyData;
 use onnx_runtime::operators::*;
 use onnx_runtime::providers::{NaiveProvider, Provider};
+use onnx_runtime::tensor::TensorData;
 use std::fs::File;
 use std::io::Read;
 use std::ops::Sub;
@@ -22,7 +23,9 @@ fn test_convolution_basic() {
     let w = load("tests/tensors/convolution/basic/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/basic/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
+    let TensorData::Float(my_y) =
+        NaiveProvider::conv(TensorData::Float(x), TensorData::Float(w), None, attrs).unwrap() else {panic!("Unexpected return type")};
+
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -37,7 +40,8 @@ fn test_convolution_stride2() {
     let w = load("tests/tensors/convolution/stride2/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/stride2/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [0, 0, 0, 0], [2, 2]);
-    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
+    let TensorData::Float(my_y) =
+        NaiveProvider::conv(TensorData::Float(x), TensorData::Float(w), None, attrs).unwrap()else {panic!("Unexpected return type")};
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -52,7 +56,8 @@ fn test_convolution_pad1() {
     let w = load("tests/tensors/convolution/pad1/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/pad1/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
+    let TensorData::Float(my_y) =
+        NaiveProvider::conv(TensorData::Float(x), TensorData::Float(w), None, attrs).unwrap()else {panic!("Unexpected return type")};
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -67,7 +72,8 @@ fn test_convolution_dil2() {
     let w = load("tests/tensors/convolution/dil2/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/dil2/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
+    let TensorData::Float(my_y) =
+        NaiveProvider::conv(TensorData::Float(x), TensorData::Float(w), None, attrs).unwrap()else {panic!("Unexpected return type")};
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -82,7 +88,8 @@ fn test_convolution_dil2big() {
     let w = load("tests/tensors/convolution/dil2big/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/dil2big/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [1, 1]);
-    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
+    let TensorData::Float(my_y) =
+        NaiveProvider::conv(TensorData::Float(x), TensorData::Float(w), None, attrs).unwrap()else {panic!("Unexpected return type")};
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -97,7 +104,8 @@ fn test_convolution_dil2big_stride2() {
     let w = load("tests/tensors/convolution/dil2big_stride2/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/dil2big_stride2/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [0, 0, 0, 0], [2, 2]);
-    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
+    let TensorData::Float(my_y) =
+        NaiveProvider::conv(TensorData::Float(x), TensorData::Float(w), None, attrs).unwrap()else {panic!("Unexpected return type")};
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -121,7 +129,8 @@ fn test_convolution_dil2big_stride2_pad2() {
         &y_shape,
     );
     let attrs = ConvAttributes::new([2, 2], 1, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
+    let TensorData::Float(my_y) =
+        NaiveProvider::conv(TensorData::Float(x), TensorData::Float(w), None, attrs).unwrap()else {panic!("Unexpected return type")};
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", &err);
     assert!(err < 1e-5);
@@ -136,7 +145,8 @@ fn test_convolution_complete() {
     let w = load("tests/tensors/convolution/complete/w.npy", &w_shape);
     let y = load("tests/tensors/convolution/complete/y.npy", &y_shape);
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = NaiveProvider::conv(x, w, None, attrs).unwrap();
+    let TensorData::Float(my_y) =
+        NaiveProvider::conv(TensorData::Float(x), TensorData::Float(w), None, attrs).unwrap()else {panic!("Unexpected return type")};
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     //println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -150,12 +160,17 @@ fn test_convolution_complete_bias() {
     let b_shape = [8];
     let x = load("tests/tensors/convolution/complete_bias/x.npy", &x_shape);
     let w = load("tests/tensors/convolution/complete_bias/w.npy", &w_shape);
-    let b = load("tests/tensors/convolution/complete_bias/b.npy", &b_shape)
-        .into_dimensionality::<Ix1>()
-        .unwrap();
     let y = load("tests/tensors/convolution/complete_bias/y.npy", &y_shape);
+    let b = load("tests/tensors/convolution/complete_bias/b.npy", &b_shape);
     let attrs = ConvAttributes::new([2, 2], 2, [3, 3], [2, 2, 2, 2], [2, 2]);
-    let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
+    let TensorData::Float(my_y) = NaiveProvider::conv(
+        TensorData::Float(x),
+        TensorData::Float(w),
+        Some(TensorData::Float(b)),
+        attrs,
+    )
+    .unwrap()
+else {panic!("Unexpected return type")};
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -169,12 +184,17 @@ fn test_convolution_huge() {
     let y_shape = [1, 256, 224, 224];
     let x = load("tests/tensors/convolution/huge/x.npy", &x_shape);
     let w = load("tests/tensors/convolution/huge/w.npy", &w_shape);
-    let b = load("tests/tensors/convolution/huge/b.npy", &b_shape)
-        .into_dimensionality::<Ix1>()
-        .unwrap();
     let y = load("tests/tensors/convolution/huge/y.npy", &y_shape);
+    let b = load("tests/tensors/convolution/complete_bias/b.npy", &b_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
+    let TensorData::Float(my_y) = NaiveProvider::conv(
+        TensorData::Float(x),
+        TensorData::Float(w),
+        Some(TensorData::Float(b)),
+        attrs,
+    )
+    .unwrap()
+else {panic!("Unexpected return type")};
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     //println!("avg error = {}", err);
     assert!(err < 1e-4);
@@ -188,15 +208,20 @@ fn test_convolution_big() {
     let y_shape = [1, 64, 224, 224];
     let x = load("tests/tensors/convolution/big/x.npy", &x_shape);
     let w = load("tests/tensors/convolution/big/w.npy", &w_shape);
-    let b = load("tests/tensors/convolution/big/b.npy", &b_shape)
-        .into_dimensionality::<Ix1>()
-        .unwrap();
+    let b = load("tests/tensors/convolution/big/b.npy", &b_shape);
     let y = load("tests/tensors/convolution/big/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
+    let TensorData::Float(my_y) = NaiveProvider::conv(
+        TensorData::Float(x),
+        TensorData::Float(w),
+        Some(TensorData::Float(b)),
+        attrs,
+    )
+    .unwrap()
+else {panic!("Unexpected return type")};
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    //println!("avg error = {}", err);
-    assert!(err < 1e-4);
+    println!("avg error = {}", err);
+    assert!(err < 1e-5);
 }
 
 #[test]

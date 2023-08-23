@@ -9,7 +9,7 @@ use crate::{
         BatchNormAttributes, ClipAttributes, ConcatAttributes, ConvAttributes, GatherAttributes,
         GemmAttributes, MaxPoolAttributes, OperationError, UnsqueezeAttributes,
     },
-    tensor::TypeToTensorDataType,
+    tensor::{TensorData, TypeToTensorDataType},
 };
 
 pub type DefaultProvider = NaiveProvider;
@@ -31,11 +31,11 @@ pub trait Provider {
     fn version(&self) -> u64;
 
     fn conv(
-        x: ArrayD<f32>,
-        weights: ArrayD<f32>,
-        bias: Option<Array1<f32>>,
+        x: TensorData,
+        weights: TensorData,
+        bias: Option<TensorData>,
         attrs: ConvAttributes,
-    ) -> Result<ArrayD<f32>, OperationError>;
+    ) -> Result<TensorData, OperationError>;
 
     fn gemm(
         a: ArrayD<f32>,

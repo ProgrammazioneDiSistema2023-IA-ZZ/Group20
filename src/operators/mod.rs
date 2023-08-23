@@ -8,9 +8,11 @@
 
 mod attributes;
 mod initializers;
+mod validators;
 
 pub use attributes::*;
 pub use initializers::*;
+pub use validators::*;
 
 use crate::tensor::TensorParametrizedShape;
 use thiserror::Error;
@@ -71,4 +73,22 @@ pub enum OperationError {
     InvalidOperator,
     #[error("Unknwon operation error")]
     Unknown,
+}
+
+macro_rules! validate_tensor_data_type {
+    ($tensor:expr, $($type:ident)|+) => {
+
+        match $tensor.into() {
+            $(
+                TensorDataType::$type => Ok(()),
+            )+
+            _ => Err(format!(
+                    "{} must be of type {}, found {:?}",
+                    stringify!($tensor),
+                    stringify!($($type)|+),
+                    TensorDataType::from($tensor)
+                ))
+           ,
+        }
+    };
 }

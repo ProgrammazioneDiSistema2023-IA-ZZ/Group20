@@ -1,4 +1,4 @@
-use ndarray::{Array1, ArrayD, Ix0, Ix2, IxDyn};
+use ndarray::{Array1, ArrayD, Ix0, Ix1, Ix2, IxDyn};
 use std::ops::Add;
 
 use crate::{
@@ -6,7 +6,7 @@ use crate::{
         BatchNormAttributes, ClipAttributes, ConcatAttributes, ConvAttributes, GatherAttributes,
         GemmAttributes, MaxPoolAttributes, UnsqueezeAttributes,
     },
-    tensor::TypeToTensorDataType,
+    tensor::{TensorData, TypeToTensorDataType},
 };
 
 use super::{OperationError, Provider};
@@ -302,35 +302,62 @@ impl Provider for NaiveProvider {
         }
         Ok(output)
     }
-
     fn conv(
-        x: ArrayD<f32>,
-        weights: ArrayD<f32>,
-        bias: Option<Array1<f32>>,
+        x: TensorData,
+        weights: TensorData,
+        bias: Option<TensorData>,
         attrs: ConvAttributes,
-    ) -> Result<ArrayD<f32>, OperationError> {
-        // checks
-        let [batch_size, in_chans, height, width] = *x.shape() else {
-            return Err(OperationError::WrongDim(4, x.shape().len()));
-        };
-        if weights.shape().len() != 4 {
-            return Err(OperationError::WrongDim(4, weights.shape().len()));
+    ) -> Result<TensorData, OperationError> {
+        // Output should be homogeneous to the input, so we check the type of the input
+        if let [TensorData::Float(x), TensorData::Float(weights)] = [x.clone(), weights.clone()] {
+            let bias = match bias {
+                Some(TensorData::Float(bias)) => Some(bias.into_dimensionality::<Ix1>().unwrap()),
+                None => None,
+                _ => return Err(OperationError::UnsupportedOperator),
+            };
+            let output = conv!(x, weights, bias, attrs, f32)?;
+            Ok(TensorData::Float(output))
+        } else if let [TensorData::Double(x), TensorData::Double(weights)] = [x, weights] {
+            let bias = match bias {
+                Some(TensorData::Double(bias)) => Some(bias.into_dimensionality::<Ix1>().unwrap()),
+                None => None,
+                _ => return Err(OperationError::UnsupportedOperator),
+            };
+            let output = conv!(x, weights, bias, attrs, f64)?;
+            Ok(TensorData::Double(output))
+        } else {
+            Err(OperationError::UnsupportedOperator)
         }
-        if weights.shape()[2..] != attrs.kernel_shape {
+    }
+}
+
+macro_rules! conv {
+    ($x:ident, $weights:ident, $bias:ident, $attrs:ident, $type:ty) => {(|| -> Result<ArrayD<$type>, OperationError> {
+        // checks
+        let [batch_size, in_chans, height, width] = *$x.shape() else {
+            return Err(OperationError::WrongDim(4, $x.shape().len()));
+        };
+        if $weights.shape().len() != 4 {
+            return Err(OperationError::WrongDim(4, $weights.shape().len()));
+        }
+        if $weights.shape()[2..] != $attrs.kernel_shape {
             return Err(OperationError::WrongShape(
                 format!(
                     "[*, *, {}, {}]",
-                    attrs.kernel_shape[0], attrs.kernel_shape[1]
+                    $attrs.kernel_shape[0], $attrs.kernel_shape[1]
                 ),
-                format!("[*, *, {}, {}]", weights.shape()[2], weights.shape()[3]),
+                format!(
+                    "[*, *, {}, {}]",
+                    $weights.shape()[2], $weights.shape()[3]
+                ),
             ));
         }
-        let n_featmaps = weights.shape()[0];
-        let bias = bias.unwrap_or(Array1::from_vec(vec![0.0; n_featmaps]));
-        if bias.shape()[0] != n_featmaps {
+        let n_featmaps = $weights.shape()[0];
+        let $bias = $bias.unwrap_or(Array1::from_vec(vec![0.0; n_featmaps]));
+        if $bias.shape()[0] != n_featmaps {
             return Err(OperationError::WrongShape(
                 format!("[{}]", n_featmaps),
-                format!("[{}]", bias.shape()[0]),
+                format!("[{}]", $bias.shape()[0]),
             ));
         }
 
@@ -341,7 +368,7 @@ impl Provider for NaiveProvider {
             kernel_shape: [kern_h, kern_w],
             pads: [pad_hs, pad_ws, pad_he, pad_we],
             strides: [stride_h, stride_w],
-        } = attrs;
+        } = $attrs;
         let output_group_size = n_featmaps / n_groups;
         let input_group_size = in_chans / n_groups;
         let out_height = 1 + ((height + pad_hs + pad_he) - (dilat_h * (kern_h - 1) + 1)) / stride_h;
@@ -359,7 +386,7 @@ impl Provider for NaiveProvider {
         let tens_we: i64 = (width + pad_we) as i64 - act_kern_w + 1;
 
         // result tensor
-        let mut output: ArrayD<f32> = ArrayD::<f32>::from_elem(IxDyn(&out_shape), 0.0);
+        let mut output: ArrayD<$type> = ArrayD::<$type>::from_elem(IxDyn(&out_shape), 0.0);
 
         for batch in 0..batch_size {
             for featmap in 0..n_featmaps {
@@ -378,14 +405,12 @@ impl Provider for NaiveProvider {
                         let win_we = ext_col + act_kern_w;
 
                         // kern_row and kern_col used to access the kernel
-                        let mut accumulator: f32 = bias[[featmap]];
+                        let mut accumulator = $bias[[featmap]];
                         // iterate over all input channels
                         for channel in group_s..group_e {
                             let group_channel = channel % input_group_size;
                             // iterate over the window defined by the kernel with the specified dilation
-                            for (kern_row, input_row) in
-                                (win_hs..win_he).step_by(dilat_h).enumerate()
-                            {
+                            for (kern_row, input_row) in (win_hs..win_he).step_by(dilat_h).enumerate() {
                                 if input_row < 0 || input_row >= height as i64 {
                                     continue;
                                 }
@@ -395,9 +420,9 @@ impl Provider for NaiveProvider {
                                     if input_col < 0 || input_col >= width as i64 {
                                         continue;
                                     }
-                                    accumulator += x
+                                    accumulator += $x
                                         [[batch, channel, input_row as usize, input_col as usize]]
-                                        * weights[[featmap, group_channel, kern_row, kern_col]];
+                                        * $weights[[featmap, group_channel, kern_row, kern_col]];
                                 }
                             }
                         }
@@ -410,5 +435,8 @@ impl Provider for NaiveProvider {
             }
         }
         Ok(output)
-    }
+    })()
+    };
 }
+
+pub(super) use conv;
