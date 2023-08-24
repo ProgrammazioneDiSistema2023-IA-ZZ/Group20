@@ -1,13 +1,13 @@
 use ndarray::{ArrayD, IxDyn};
-use petgraph::algo::toposort;
-use std::{borrow::BorrowMut, fs::File, io::Write, ops::ControlFlow};
+use petgraph::{algo::toposort, Direction};
+use std::{borrow::BorrowMut, ops::ControlFlow};
 
 use crate::{
     graph::create_graph,
     onnx_format::ModelProto,
     operators::{OperationError, Operator},
     providers::{DefaultProvider, Provider},
-    tensor::{DynamicTensorData, TensorData, TensorDataIntoDimensionality},
+    tensor::{DynamicTensorData, GraphDimension, TensorData, TensorDataIntoDimensionality},
 };
 
 pub struct Service {
@@ -21,19 +21,19 @@ impl Service {
     }
 
     /// Runs the service on the input data, using the input parameters and the default execution provider (naive).
-    ///
     pub fn run(
         &self,
         input: ArrayD<f32>,
-        input_parameters: Vec<(String, f32)>,
+        input_parameters: Vec<(String, usize)>,
     ) -> Result<TensorData, &'static str> {
         self.run_with_provider::<DefaultProvider>(input, input_parameters)
     }
 
+    /// Runs the service on the input data, using the input parameters and the chosen execution provider.
     pub fn run_with_provider<P>(
         &self,
         input: ArrayD<f32>,
-        input_parameters: Vec<(String, f32)>,
+        input_parameters: Vec<(String, usize)>,
     ) -> Result<TensorData, &'static str>
     where
         P: Provider,
@@ -41,19 +41,19 @@ impl Service {
         let mut operations_graph = create_graph(self.model.clone()).unwrap();
 
         let mut final_output = None;
-        toposort(&operations_graph, None)
-            .unwrap()
-            .into_iter()
+        let ordered_operation_list =
+            toposort(&operations_graph, None).map_err(|_| "The graph is not a DAG")?;
+
+        ordered_operation_list.into_iter()
             .try_for_each(|node| {
                 let incoming_data = operations_graph
-                    .borrow_mut()
-                    .edges_directed(node, petgraph::Direction::Incoming)
+                    .edges_directed(node, Direction::Incoming)
+                    // TODO: wait for the input to be ready for execution in a multithreaded environment
                     .map(|e| {
-                        //TODO: wait for the input to be ready for execution in a multithreaded environment
                         e.weight()
                             .borrow()
                             .clone()
-                            .expect("Executing an operation without input")
+                            .expect("Trying to get data as an input for an operation, but the data is being used by another operation")
                     })
                     .collect::<Vec<TensorData>>();
 
@@ -64,14 +64,14 @@ impl Service {
                 } else {
                     incoming_data
                 };
-                
-                let operation_result = execute_operation::<P>(incoming_data, &operations_graph[node]).map_err(|e| e.to_string());
-                let Ok(outgoing_data) = operation_result else { return ControlFlow::Break(operation_result.map(|_| ()))};
+
+                let operation_result = execute_operation::<P>(incoming_data, &input_parameters, &operations_graph[node]).map_err(|e| e.to_string());
+                let Ok(outgoing_data) = operation_result else { return ControlFlow::Break(operation_result)};
 
                 // for each outgoing edge, set the data to the outgoing data
                 operations_graph
                     .borrow_mut()
-                    .edges_directed(node, petgraph::Direction::Outgoing)
+                    .edges_directed(node, Direction::Outgoing)
                     .for_each(|e| {
                         e.weight().replace(Some(outgoing_data.clone()));
                     });
@@ -87,21 +87,62 @@ impl Service {
 
 fn execute_operation<ChosenProvider>(
     inputs: Vec<TensorData>,
+    input_parameters: &[(String, usize)],
     operator: &Operator,
 ) -> Result<TensorData, OperationError>
 where
     ChosenProvider: Provider,
 {
     match operator {
-        //TODO: check for the shape correctness before passing the incoming data for InputFeed and OutputCollector
-        Operator::InputFeed(_shape) => Ok(inputs[0].clone()),
-        Operator::OutputCollector(_shape) => Ok(inputs[0].clone()),
+        Operator::InputFeed(required_shape) | Operator::OutputCollector(required_shape) => {
+            let input_shape = inputs[0].shape();
+            if required_shape.is_empty() {
+                return Err(OperationError::WrongShape(
+                    String::from("Empty"),
+                    String::from("Non-empty"),
+                ));
+            }
+            if required_shape.len() != input_shape.len() {
+                return Err(OperationError::WrongDim(
+                    required_shape.len(),
+                    inputs[0].shape().len(),
+                ));
+            }
+            //check if the required shape is parameterized and if so, replace the parameters with the values from the input_parameters
+            let required_shape = required_shape
+                .iter()
+                .map(|dim| match dim {
+                    GraphDimension::Parameter(name) => {
+                        let param = input_parameters
+                            .iter()
+                            .find(|(param_name, _)| param_name == name)
+                            .ok_or_else(|| {
+                                OperationError::UnexpectedShape(
+                                    format!("Input parameter `{}` not found", name),
+                                    format!("Input parameter `{}` should be passed", name),
+                                )
+                            })?;
+                        Ok(param.1)
+                    }
+                    GraphDimension::Value(dim) => Ok(*dim),
+                })
+                .collect::<Result<Vec<usize>, OperationError>>()?;
+
+            //check if the input shape matches the required shape
+            if required_shape != input_shape {
+                return Err(OperationError::UnexpectedShape(
+                    format!("{:?}", required_shape),
+                    format!("{:?}", input_shape),
+                ));
+            }
+
+            Ok(inputs[0].clone())
+        }
 
         Operator::Convolution(inits, attrs) => {
             let TensorData::Float(operand) = inputs[0].clone() else {todo!("conv2d: invalid input tensor type")};
             let TensorData::Float(weights) = inits.weights.clone() else {todo!("conv2d: invalid weights tensor type")};
 
-            //operand to Array4
             let bias = inits.bias.clone().map(|b| match b {
                 TensorData::Float(b) => b.into_dimensionality::<ndarray::Ix1>().unwrap(),
                 _ => todo!("conv2d: invalid bias tensor type"),
@@ -231,7 +272,6 @@ pub struct Config {
     pub num_threads: usize,
 }
 
-
 #[cfg(test)]
 mod tests {
     use csv::WriterBuilder;
@@ -266,7 +306,7 @@ mod tests {
         // convert the TensorData to an ArrayD
         let Tensor::Constant(TensorData::Float(input)) = input else {panic!("Invalid input type")};
 
-        let input_parameters = vec![];
+        let input_parameters = vec![(String::from("N"), 1_usize)];
         let result = service.run(input, input_parameters);
 
         //print the result
@@ -309,7 +349,7 @@ mod tests {
         let model_proto = read_model_proto("tests/models/resnet18-v2-7.onnx");
         let config = Config { num_threads: 1 };
         let service = Service::new(model_proto, config);
-        let input_parameters = vec![];
+        let input_parameters = vec![(String::from("N"), 1_usize)];
 
         let result = service
             .run(preprocessed_image.into_dyn(), input_parameters)
@@ -322,14 +362,12 @@ mod tests {
             &result.clone().insert_axis(ndarray::Axis(0)),
             "tests/results_cat.csv",
         );
-        
+
         let top_5_results = postprocessing_top_k(result, 5);
         println!("Top 5 predictions:");
         for (i, (class, prob)) in top_5_results.iter().enumerate() {
             println!("{}. class: {}, probability: {}", i + 1, class, prob);
         }
-
-        
     }
 
     fn read_model_proto(path: &str) -> ModelProto {
@@ -375,5 +413,4 @@ mod tests {
             )
             .unwrap();
     }
-
 }

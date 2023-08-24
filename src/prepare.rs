@@ -31,7 +31,7 @@ pub fn preprocessing(image: image::DynamicImage) -> ndarray::Array4<f32> {
     tensor.insert_axis(ndarray::Axis(0))
 }
 
-// Post processing for the ImageNet dataset using mxnet gluon
+// Post processing for the ImageNet dataset
 pub fn postprocessing(tensor: ndarray::Array2<f32>) -> ndarray::Array1<f32> {
     // softmax on the last axis of the tensor
     let tensor = tensor.mapv(|x| x.exp());
