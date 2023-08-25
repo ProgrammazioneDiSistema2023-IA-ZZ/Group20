@@ -1,6 +1,4 @@
 use criterion::{black_box, criterion_group, Criterion};
-use ndarray::{ArrayD, Ix1, IxDyn};
-use npy::NpyData;
 use onnx_runtime::onnx_format::ModelProto;
 use onnx_runtime::prepare::{postprocessing, preprocessing};
 use onnx_runtime::service::Config;

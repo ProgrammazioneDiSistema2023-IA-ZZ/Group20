@@ -28,7 +28,7 @@ fn convolution_big() {
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
     let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    //println!("avg error = {}", err);
     assert!(err < 1e-4);
 }
 
@@ -47,7 +47,7 @@ fn convolution_huge() {
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
     let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
-    println!("avg error = {}", err);
+    //println!("avg error = {}", err);
     assert!(err < 1e-4);
 }
 
@@ -59,19 +59,5 @@ fn bench_convolution(c: &mut Criterion) {
     // group.bench_function("ConvHuge", move|b| b.iter_batched(||{}, |_| convolution_huge(), BatchSize::NumBatches(1)));
     group.finish();
 }
-
-/*
-fn bench_convolution_group(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Fibonacci3");
-    for i in 20..=21 {
-        group.bench_with_input(BenchmarkId::new("Recursive", i), &i, |b, i| {
-            b.iter(|| fibonacci_slow(*i))
-        });
-        group.bench_with_input(BenchmarkId::new("Iterative", i), &i, |b, i| {
-            b.iter(|| fibonacci_fast(*i))
-        });
-    }
-    group.finish()
-}*/
 
 criterion_group!(convolutions, bench_convolution,);
