@@ -346,7 +346,7 @@ mod tests {
         //save the preprocessed tensor as an image file
         //preprocessed_image_to_file(&preprocessed_image, "tests/preprocessed_cat.jpg");
 
-        let model_proto = read_model_proto("tests/models/resnet18-v2-7.onnx");
+        let model_proto = read_model_proto("tests/models/googlenet-7.onnx");
         let config = Config { num_threads: 1 };
         let service = Service::new(model_proto, config);
         let input_parameters = vec![(String::from("N"), 1_usize)];

@@ -1,13 +1,13 @@
-use crate::onnx_format::ValueInfoProto;
 use crate::onnx_format::{self, ModelProto};
+use crate::onnx_format::{AttributeProto, ValueInfoProto};
 use crate::operators::*;
 
 use crate::tensor::{Tensor, TensorData, TensorParametrizedShape};
 
 use petgraph::algo::toposort;
-use petgraph::dot::{Config, Dot};
+
 use petgraph::graph::NodeIndex;
-use petgraph::visit::GraphProp;
+
 use petgraph::Graph;
 use prost::Message;
 use std::cell::RefCell;
@@ -75,27 +75,31 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
         let mut inputs = node.input;
         let node_name = match node.name {
             Some(s) => s,
-            None => {
-                return Err(GraphError::ConversionError(
-                    "Unable to recover node name".to_string(),
-                ))
-            }
+            None => String::from(""),
         };
         let parents_names: Vec<String>;
 
         let operator: Operator = match op_type.as_str() {
             "BatchNormalization" => {
-                let Some(epsilon) = node.attribute[0].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("epsilon"), operator: node_name, operator_type:String::from("BatchNormalization")})
-                };
-
-                let Some(momentum) = node.attribute[1].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("momentum"), operator: node_name, operator_type:String::from("BatchNormalization")})
-                };
-
-                let Some(spatial) = node.attribute[2].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("spatial"), operator: node_name, operator_type:String::from("BatchNormalization")})
-                };
+                println!("{:?}", node.attribute);
+                let epsilon = node
+                    .attribute
+                    .iter()
+                    .find(|a| a.name() == "epsilon")
+                    .map(|e| e.f.unwrap_or(1e-5))
+                    .unwrap_or(1e-5);
+                let momentum = node
+                    .attribute
+                    .iter()
+                    .find(|a| a.name() == "momentum")
+                    .map(|m| m.f.unwrap_or(0.9))
+                    .unwrap_or(0.9);
+                let spatial = node
+                    .attribute
+                    .iter()
+                    .find(|a| a.name() == "spatial")
+                    .map(|s| s.i.unwrap_or(1))
+                    .unwrap_or(1);
 
                 let attrs = BatchNormAttributes::new(epsilon, momentum, spatial);
 
@@ -132,32 +136,47 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 Operator::BatchNorm(inps, attrs)
             }
             "Conv" => {
+                let dilations = node
+                    .attribute
+                    .iter()
+                    .find(|a| a.name() == "dilations")
+                    .map(|v| [v.ints[0] as usize, v.ints[1] as usize])
+                    .unwrap_or([0, 0]);
+
+                let group = node
+                    .attribute
+                    .iter()
+                    .find(|a| a.name() == "group")
+                    .map(|v| v.i.unwrap())
+                    .unwrap_or(1);
+                let kernel_shape_proto = node
+                    .attribute
+                    .iter()
+                    .find(|a| a.name() == "kernel_shape")
+                    .unwrap();
+                let pads_proto = node.attribute.iter().find(|a| a.name() == "pads").unwrap();
+                let strides_proto = node
+                    .attribute
+                    .iter()
+                    .find(|a| a.name() == "strides")
+                    .unwrap();
+
                 let attrs = ConvAttributes::new(
+                    dilations,
+                    group as usize,
                     [
-                        node.attribute[0].ints[0] as usize,
-                        node.attribute[0].ints[1] as usize,
-                    ],
-                    match node.attribute[1].i {
-                        Some(i) => i,
-                        None => {
-                            return Err(GraphError::ConversionError(
-                                "Unable to unwrap i in group attribute".to_string(),
-                            ))
-                        }
-                    } as usize,
-                    [
-                        node.attribute[2].ints[0] as usize,
-                        node.attribute[2].ints[1] as usize,
+                        kernel_shape_proto.ints[0] as usize,
+                        kernel_shape_proto.ints[1] as usize,
                     ],
                     [
-                        node.attribute[3].ints[0] as usize,
-                        node.attribute[3].ints[1] as usize,
-                        node.attribute[3].ints[2] as usize,
-                        node.attribute[3].ints[3] as usize,
+                        pads_proto.ints[0] as usize,
+                        pads_proto.ints[1] as usize,
+                        pads_proto.ints[2] as usize,
+                        pads_proto.ints[3] as usize,
                     ],
                     [
-                        node.attribute[4].ints[0] as usize,
-                        node.attribute[4].ints[1] as usize,
+                        strides_proto.ints[0] as usize,
+                        strides_proto.ints[1] as usize,
                     ],
                 );
 
