@@ -274,14 +274,12 @@ pub struct Config {
 
 #[cfg(test)]
 mod tests {
-    use csv::WriterBuilder;
+    use crate::tensor::{Tensor, TensorData};
     use image::codecs::jpeg::JpegEncoder;
-    use ndarray_csv::Array2Writer;
     use prost::Message;
 
     use crate::onnx_format::TensorProto;
     use crate::prepare::{postprocessing, postprocessing_top_k};
-    use crate::tensor::{Tensor, TensorData};
     use crate::{
         onnx_format::ModelProto,
         service::{Config, Service},
@@ -289,64 +287,78 @@ mod tests {
     use std::{fs::File, io::Read};
 
     #[test]
-    fn test_service() {
-        use crate::tensor::{Tensor, TensorData};
-        use prost::Message;
-        use std::fs::File;
-        use std::io::Read;
+    fn run_mobilenet_with_testset() {
+        test_service("mobilenetv2-7", "mobilenet");
+    }
 
-        let parsed_model = read_model_proto("tests/models/mobilenetv2-7.onnx");
+    #[test]
+    fn run_resnet_with_testset() {
+        test_service("resnet18-v2-7", "resnet");
+    }
+
+    #[test]
+    fn run_resnet_with_siamese_cat_image() {
+        let most_probable_class =
+            run_with_image_input("resnet18-v2-7", "tests/images/siamese-cat.jpg");
+        assert_eq!(most_probable_class, "n02123597 Siamese cat, Siamese");
+    }
+
+    #[test]
+    fn run_mobilenet_with_siamese_cat_image() {
+        let most_probable_class =
+            run_with_image_input("mobilenetv2-7", "tests/images/siamese-cat.jpg");
+        assert_eq!(most_probable_class, "n02123597 Siamese cat, Siamese");
+    }
+
+    fn test_service(model_name: &str, testset_folder: &str) {
+        let parsed_model = read_model_proto(&format!("tests/models/{}.onnx", model_name));
 
         let config = Config { num_threads: 1 };
         let service = Service::new(parsed_model, config);
+        let input_parameters = vec![(String::from("N"), 1_usize)];
 
         //read input from test.pb as an ArrayD of shape [1, 3, 224, 224]
-        let input = read_testset("tests/testset/mobilenet/input_0.pb");
+        let input = read_testset(&format!("tests/testset/{}/input_0.pb", testset_folder));
 
         // convert the TensorData to an ArrayD
         let Tensor::Constant(TensorData::Float(input)) = input else {panic!("Invalid input type")};
 
-        let input_parameters = vec![(String::from("N"), 1_usize)];
         let result = service.run(input, input_parameters);
-
-        //print the result
-        println!("{:?}", result);
-
-        //and write it to a file
         let TensorData::Float(result) = result.unwrap() else {panic!("Invalid result type")};
-        let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
-        write_to_csv(&result, "tests/results.csv");
+        let result = result
+            .into_dimensionality::<ndarray::Ix2>()
+            .expect("Invalid result dimensionality");
 
-        let mut expected_input_file = File::open("tests/testset/mobilenet/output_0.pb").unwrap();
-        let mut expected_input_buffer = Vec::new();
-        expected_input_file
-            .read_to_end(&mut expected_input_buffer)
+        let mut expected_output_buffer = Vec::new();
+        let mut expected_output_file =
+            File::open(format!("tests/testset/{}//output_0.pb", testset_folder)).unwrap();
+        expected_output_file
+            .read_to_end(&mut expected_output_buffer)
             .unwrap();
-        let expected_output =
-            crate::onnx_format::TensorProto::decode(expected_input_buffer.as_slice()).unwrap();
+        let expected_output = TensorProto::decode(expected_output_buffer.as_slice()).unwrap();
 
-        let Tensor::Constant(TensorData::Float(expected_output)) = Tensor::from(expected_output) else {panic!("Invalid expected output type")};
+        let Tensor::Constant(TensorData::Float(expected_output)) = Tensor::from(expected_output) else {
+            panic!("Invalid expected output type")
+        };
         let expected_output = expected_output
             .into_dimensionality::<ndarray::Ix2>()
             .unwrap();
-        write_to_csv(&expected_output, "tests/results_expected.csv");
 
         //check if the result is the same as the expected output
         let err = (result - expected_output).mapv(|x| x.abs()).mean().unwrap();
         assert!(err < 1e-4);
     }
 
-    #[test]
-    fn run_on_cat_image() {
+    fn run_with_image_input(model_name: &str, image_path: &str) -> String {
         use crate::prepare::preprocessing;
 
-        let image = image::open("tests/images/siamese-cat.jpg").unwrap();
+        let image = image::open(image_path).unwrap();
         let preprocessed_image = preprocessing(image);
 
         //save the preprocessed tensor as an image file
         //preprocessed_image_to_file(&preprocessed_image, "tests/preprocessed_cat.jpg");
 
-        let model_proto = read_model_proto("tests/models/resnet18-v2-7.onnx");
+        let model_proto = read_model_proto(&format!("tests/models/{}.onnx", model_name));
         let config = Config { num_threads: 1 };
         let service = Service::new(model_proto, config);
         let input_parameters = vec![(String::from("N"), 1_usize)];
@@ -358,16 +370,15 @@ mod tests {
         let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
         let result = postprocessing(result);
 
-        write_to_csv(
-            &result.clone().insert_axis(ndarray::Axis(0)),
-            "tests/results_cat.csv",
-        );
+        //println!("Top 5 predictions:");
+        //for (i, (class, prob)) in  postprocessing_top_k(result, 5).iter().enumerate() {
+        //    println!("{}. class: {}, probability: {}", i + 1, class, prob);
+        //}
 
-        let top_5_results = postprocessing_top_k(result, 5);
-        println!("Top 5 predictions:");
-        for (i, (class, prob)) in top_5_results.iter().enumerate() {
-            println!("{}. class: {}, probability: {}", i + 1, class, prob);
-        }
+        let result = postprocessing_top_k(result, 1);
+        let [top_result, ..] = result.as_slice() else {panic!("The final output should have at least one element")};
+        let (top_class, _probability) = top_result;
+        top_class.clone()
     }
 
     fn read_model_proto(path: &str) -> ModelProto {
@@ -384,14 +395,6 @@ mod tests {
         file.read_to_end(&mut buffer).unwrap();
 
         Tensor::from(TensorProto::decode(buffer.as_slice()).unwrap())
-    }
-
-    fn write_to_csv(tensor: &ndarray::Array2<f32>, path: &str) {
-        let output_file = File::create(path).unwrap();
-        let mut writer = WriterBuilder::new()
-            .has_headers(false)
-            .from_writer(output_file);
-        writer.serialize_array2(tensor).unwrap();
     }
 
     #[allow(dead_code)]
