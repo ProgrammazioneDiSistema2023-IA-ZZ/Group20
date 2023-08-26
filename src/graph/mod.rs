@@ -23,18 +23,24 @@ pub enum GraphError {
         operator_type: String,
     },
 
-    #[error("Unsupported operator:  {0}")]
+    #[error("Unsupported operator: {0}")]
     UnsupportedOperator(String),
 
     #[error("for the child {child_name}")]
     ParentNotFound { child_name: String },
 
-    #[error("")]
+    #[error("Unexpected error")]
     UnexpectedError,
 
     #[error("DeconstructError: {0}")]
     DeconstructError(String),
 
-    #[error("unknwon operation error")]
+    #[error("InputNodeParsingError")]
+    InputNodeParsingError,
+
+    #[error("OutputNodeParsingError")]
+    OutputNodeParsingError,
+
+    #[error("Unknwon operation error")]
     Unknown,
 }

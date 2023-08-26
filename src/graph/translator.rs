@@ -1,26 +1,22 @@
+use crate::onnx_format::ModelProto;
 use crate::onnx_format::ValueInfoProto;
-use crate::onnx_format::{self, ModelProto};
 use crate::operators::*;
 
 use crate::tensor::{Tensor, TensorData, TensorParametrizedShape};
 
-use petgraph::algo::toposort;
-use petgraph::dot::{Config, Dot};
 use petgraph::graph::NodeIndex;
-use petgraph::visit::GraphProp;
 use petgraph::Graph;
-use prost::Message;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::{fs::File, io::Read};
 
 use super::GraphError;
 
 type RuntimeGraph = Graph<Operator, RefCell<Option<TensorData>>>;
 
+/// This enum is used to store the information about the nodes of the graph.
+/// We will find only Input and Intermediate (not Output) nodes in order to build the graph and to avoid cyclic dependencies.
 enum NodeInfo {
     Input(u32),
-    Output(u32),
     Intermediate(u32, Vec<String>, Vec<String>),
 }
 
@@ -28,7 +24,6 @@ impl NodeInfo {
     fn index(&self) -> u32 {
         match self {
             NodeInfo::Input(i) => *i,
-            NodeInfo::Output(i) => *i,
             NodeInfo::Intermediate(i, _, _) => *i,
         }
     }
@@ -53,10 +48,16 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
     let initializers = graph_proto.initializer;
     let nodes = graph_proto.node;
 
-    let (input_node_name, input_shape) =
-        parse_model_io_node(graph_input).expect("Unable to parse input node");
-    let (output_node_name, output_shape) =
-        parse_model_io_node(graph_output).expect("Unable to parse output node");
+    let (input_node_name, input_shape) = match parse_model_io_node(graph_input) {
+        Some((name, shape)) => (name, shape),
+        None => return Err(GraphError::InputNodeParsingError),
+    };
+
+    let (output_node_name, output_shape) = match parse_model_io_node(graph_output) {
+        Some((name, shape)) => (name, shape),
+        None => return Err(GraphError::OutputNodeParsingError),
+    };
+
     let input_node = model_graph.add_node(Operator::InputFeed(input_shape));
     let output_node = model_graph.add_node(Operator::OutputCollector(output_shape));
 
@@ -85,16 +86,28 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
 
         let operator: Operator = match op_type.as_str() {
             "BatchNormalization" => {
-                let Some(epsilon) = node.attribute[0].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("epsilon"), operator: node_name, operator_type:String::from("BatchNormalization")})
+                let Some(epsilon) = node.attribute[0].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("epsilon"),
+                        operator: node_name,
+                        operator_type: String::from("BatchNormalization"),
+                    });
                 };
 
-                let Some(momentum) = node.attribute[1].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("momentum"), operator: node_name, operator_type:String::from("BatchNormalization")})
+                let Some(momentum) = node.attribute[1].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("momentum"),
+                        operator: node_name,
+                        operator_type: String::from("BatchNormalization"),
+                    });
                 };
 
-                let Some(spatial) = node.attribute[2].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("spatial"), operator: node_name, operator_type:String::from("BatchNormalization")})
+                let Some(spatial) = node.attribute[2].i else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("spatial"),
+                        operator: node_name,
+                        operator_type: String::from("BatchNormalization"),
+                    });
                 };
 
                 let attrs = BatchNormAttributes::new(epsilon, momentum, spatial);
@@ -114,8 +127,8 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                         }
                     };
 
-                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
-                            return Err(GraphError::UnexpectedError);
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else {
+                        return Err(GraphError::UnexpectedError);
                     };
 
                     useful_initializers.push(data);
@@ -176,9 +189,9 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                         }
                     };
 
-                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else {
                         return Err(GraphError::UnexpectedError);
-                };
+                    };
 
                     useful_initializers.push(data);
                 }
@@ -246,7 +259,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                         }
                     };
 
-                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else {
                         return Err(GraphError::UnexpectedError);
                     };
 
@@ -264,20 +277,36 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 Operator::Reshape(inps)
             }
             "Gemm" => {
-                let Some(alpha) = node.attribute[0].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("alpha"), operator: node_name, operator_type:String::from("Gemm")});
+                let Some(alpha) = node.attribute[0].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("alpha"),
+                        operator: node_name,
+                        operator_type: String::from("Gemm"),
+                    });
                 };
 
-                let Some(beta) = node.attribute[1].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("beta"), operator: node_name, operator_type:String::from("Gemm")});
+                let Some(beta) = node.attribute[1].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("beta"),
+                        operator: node_name,
+                        operator_type: String::from("Gemm"),
+                    });
                 };
 
-                let Some(trans_a) = node.attribute[2].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("trans_a"), operator: node_name, operator_type:String::from("Gemm")});
+                let Some(trans_a) = node.attribute[2].i else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("trans_a"),
+                        operator: node_name,
+                        operator_type: String::from("Gemm"),
+                    });
                 };
 
-                let Some(trans_b) = node.attribute[3].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("trans_b"), operator: node_name, operator_type:String::from("Gemm")});
+                let Some(trans_b) = node.attribute[3].i else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("trans_b"),
+                        operator: node_name,
+                        operator_type: String::from("Gemm"),
+                    });
                 };
 
                 let attrs: GemmAttributes = GemmAttributes::new(alpha, beta, trans_a, trans_b);
@@ -297,7 +326,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                         }
                     };
 
-                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else {
                         return Err(GraphError::UnexpectedError);
                     };
 
@@ -315,12 +344,20 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 Operator::Gemm(inps, attrs)
             }
             "Clip" => {
-                let Some(min) = node.attribute[1].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("min"), operator: node_name, operator_type:String::from("Clip")});
+                let Some(min) = node.attribute[1].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("min"),
+                        operator: node_name,
+                        operator_type: String::from("Clip"),
+                    });
                 };
 
-                let Some(max) = node.attribute[0].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("max"), operator: node_name, operator_type:String::from("Clip")});
+                let Some(max) = node.attribute[0].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("max"),
+                        operator: node_name,
+                        operator_type: String::from("Clip"),
+                    });
                 };
 
                 let attrs: ClipAttributes = ClipAttributes::new(min, max);
@@ -334,8 +371,12 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 Operator::Shape
             }
             "Gather" => {
-                let Some(axes) = node.attribute[0].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("axes"), operator: node_name, operator_type:String::from("Gather")});
+                let Some(axes) = node.attribute[0].i else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("axes"),
+                        operator: node_name,
+                        operator_type: String::from("Gather"),
+                    });
                 };
 
                 let attrs: GatherAttributes = GatherAttributes::new(axes as usize);
@@ -355,7 +396,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                         }
                     };
 
-                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else {
                         return Err(GraphError::UnexpectedError);
                     };
 
@@ -381,8 +422,12 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 Operator::Unsqueeze(attrs)
             }
             "Concat" => {
-                let Some(axes) = node.attribute[0].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("axes"), operator: node_name, operator_type:String::from("Concat")});
+                let Some(axes) = node.attribute[0].i else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("axes"),
+                        operator: node_name,
+                        operator_type: String::from("Concat"),
+                    });
                 };
                 let attrs: ConcatAttributes = ConcatAttributes::new(axes as usize);
 
@@ -443,7 +488,7 @@ fn parse_model_io_node(
             if !tensor.is_parametrized_io() {
                 return None;
             }
-            if let Tensor::Graph(shape, _) = tensor {
+            if let Tensor::InOut(shape, _) = tensor {
                 return Some((node_name, shape));
             }
             None
@@ -452,48 +497,47 @@ fn parse_model_io_node(
             let value_info = io_value_infos[0].clone();
             let node_name = value_info.name.clone().unwrap_or_default();
             let tensor = Tensor::try_from(value_info).ok()?;
-            if let Tensor::Graph(shape, _) = tensor {
+            if let Tensor::InOut(shape, _) = tensor {
                 return Some((node_name, shape));
             }
             None
         })
 }
+#[cfg(test)]
+mod tests {
 
-#[test]
-fn print_parsed_model_test() {
-    let path_resnet = "tests/models/resnet18-v2-7.onnx";
-    //let path_mobilenet = "tests/models/mobilenetv2-10.onnx";
+    use super::*;
+    use crate::onnx_format::{self};
+    use prost::Message;
+    use std::{fs::File, io::Read};
 
-    let parsed_model = get_parsed_model(path_resnet);
+    #[test]
+    fn parsed_model_test_node_count_resnet() {
+        let path_resnet = "tests/models/resnet18-v2-7.onnx";
+        let node_count_resnet = run_parsed_model(path_resnet);
+        assert_eq!(node_count_resnet, 71);
+    }
 
-    // println!("\nlength of initializer: {}\n\n", initializer.len());
+    #[test]
+    fn parsed_model_test_node_count_mobilenet() {
+        let path_mobilenet = "tests/models/mobilenetv2-7.onnx";
+        let node_count_mobilenet = run_parsed_model(path_mobilenet);
+        assert_eq!(node_count_mobilenet, 157);
+    }
 
-    // for tensor in initializer{
-    //    println!("{:?}\n\n\n", tensor);
-    //    break;
-    // }
+    fn get_parsed_model(path: &str) -> onnx_format::ModelProto {
+        let mut buffer = Vec::new();
+        let mut file = File::open(path).unwrap();
+        file.read_to_end(&mut buffer).unwrap();
 
-    // println!("{:?}\n\n\n", initializer[0]);
+        let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
+        parsed_model.expect("Failed to unwrap parsed_model in get_parsed_model()")
+    }
 
-    // for node in parsed_model.unwrap().new_graph.unwrap().node{
-    //     println!("{:?}\n", node );
-    // }
+    fn run_parsed_model(path: &str) -> usize {
+        let parsed_model = get_parsed_model(path);
+        let graph = create_graph(parsed_model).unwrap();
 
-    let graph = create_graph(parsed_model).unwrap();
-    //let pgraph = graph.map(|ni, n| n.name(), |ei, e| e.clone());
-    //print_graph(&pgraph, 0.into());
-    //println!("{:?}", Dot::with_config(&pgraph, &[Config::EdgeNoLabel]));
-
-    toposort(&graph, None).unwrap().into_iter().for_each(|n| {
-        println!("{}", graph[n].name());
-    });
-}
-
-fn get_parsed_model(path: &str) -> onnx_format::ModelProto {
-    let mut buffer = Vec::new();
-    let mut file = File::open(path).unwrap();
-    file.read_to_end(&mut buffer).unwrap();
-
-    let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
-    parsed_model.expect("Failed to unwrap parsed_model in get_parsed_model()")
+        graph.node_count()
+    }
 }

@@ -39,6 +39,8 @@ pub enum Operator {
 impl Operator {
     pub fn name(&self) -> String {
         match self {
+            Operator::InputFeed(_) => "InputFeed".to_string(),
+            Operator::OutputCollector(_) => "OutputCollector".to_string(),
             Operator::Convolution(_, _) => "Convolution".to_string(),
             Operator::Clip(_) => "Clip".to_string(),
             Operator::Add => "Add".to_string(),
@@ -52,7 +54,6 @@ impl Operator {
             Operator::MaxPool(_) => "MaxPool".to_string(),
             Operator::BatchNorm(_, _) => "BatchNorm".to_string(),
             Operator::ReLU => "ReLU".to_string(),
-            _ => "None".to_string(),
         }
     }
 }

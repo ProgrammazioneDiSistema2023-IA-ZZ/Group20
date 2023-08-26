@@ -23,7 +23,7 @@ pub type TensorParametrizedShape = Vec<GraphDimension>;
 /// We'll refer to them as **constant tensors**.
 /// - **graph input/output tensors**: *partially* know its shape and have an unknown data type prior to execution. Its values are fed or fetched during execution.
 /// This is a tricky one, because the shape is not fully known on the model definition, but it is known before the model execution.
-/// This is because the shape is defined by the input data. We'll refer to them as **graph tensors**.
+/// This is because the shape is defined by the input data. We'll refer to them as **in/out tensors**.
 /// - **dynamically sized tensors**: have an unknown shape prior to execution.
 /// Its shape and values are determined during execution.
 /// These are used for intermediate values between nodes. We'll refer to them as **dynamic tensors**.
@@ -35,7 +35,8 @@ pub enum Tensor {
     /// These are used for attributes and initializers tensors.
     Constant(TensorData),
 
-    /// Tensor with a partially known shape on model definition,
+    /// Tensor with either a partially known shape on model definition,
+    /// or a fully known shape on model definition,
     /// but is defined by a chosen user input/output before executing it.
     /// Its data type is unknown before the model execution.
     ///
@@ -43,7 +44,7 @@ pub enum Tensor {
     /// fetched as output right after the model execution.
     /// These are used for graph input and output tensors.
     /// This tensor is defined to warn the programmer to check the shape of the TensorData when setted.
-    Graph(TensorParametrizedShape, Option<TensorData>),
+    InOut(TensorParametrizedShape, Option<TensorData>),
 
     /// Tensor with an unknown shape prior to execution. Its shape and values are determined during execution.
     ///
@@ -105,13 +106,13 @@ impl From<TensorShapeProto> for Tensor {
             })
             .collect::<TensorParametrizedShape>();
 
-        Tensor::Graph(dimensions, None)
+        Tensor::InOut(dimensions, None)
     }
 }
 
 impl Tensor {
     pub fn is_parametrized_io(&self) -> bool {
-        if let Tensor::Graph(dims, _) = self {
+        if let Tensor::InOut(dims, _) = self {
             dims.iter().any(|x| x.is_parametrized())
         } else {
             false
@@ -408,7 +409,6 @@ macro_rules! impl_type_trait {
                 }
             }
         }
-
         //implement dynamic conversion from TensorData to ndarray
         impl DynamicTensorData<$type_> for TensorData {
             fn new_dyn(data: ArrayD<$type_>) -> TensorData {
