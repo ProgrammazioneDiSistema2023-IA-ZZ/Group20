@@ -1,14 +1,27 @@
 use ndarray::{ArrayD, IxDyn};
 use petgraph::{algo::toposort, Direction};
 use std::{borrow::BorrowMut, ops::ControlFlow};
+use thiserror::Error;
 
 use crate::{
-    graph::create_graph,
+    graph::{create_graph, GraphError},
     onnx_format::ModelProto,
     operators::{OperationError, Operator},
     providers::{DefaultProvider, Provider},
     tensor::{DynamicTensorData, GraphDimension, TensorData, TensorDataIntoDimensionality},
 };
+
+#[derive(Error, Debug)]
+pub enum ServiceError {
+    #[error("The model could not be translated into an executable graph: {0}")]
+    CouldNotTranslateModel(GraphError),
+    #[error("An operation failed while inferring the model: {0}")]
+    CouldNotExecuteOperation(OperationError),
+    #[error("The used model is invalid: {0}")]
+    InvalidModel(&'static str),
+    #[error("The output node was not found")]
+    OutputNodeNotFound,
+}
 
 pub struct Service {
     model: ModelProto,
@@ -25,7 +38,7 @@ impl Service {
         &self,
         input: ArrayD<f32>,
         input_parameters: Vec<(String, usize)>,
-    ) -> Result<TensorData, &'static str> {
+    ) -> Result<TensorData, ServiceError> {
         self.run_with_provider::<DefaultProvider>(input, input_parameters)
     }
 
@@ -34,17 +47,17 @@ impl Service {
         &self,
         input: ArrayD<f32>,
         input_parameters: Vec<(String, usize)>,
-    ) -> Result<TensorData, &'static str>
+    ) -> Result<TensorData, ServiceError>
     where
         P: Provider,
     {
-        let mut operations_graph = create_graph(self.model.clone()).unwrap();
-
         let mut final_output = None;
-        let ordered_operation_list =
-            toposort(&operations_graph, None).map_err(|_| "The graph is not a DAG")?;
+        let mut operations_graph =
+            create_graph(self.model.clone()).map_err(ServiceError::CouldNotTranslateModel)?;
+        let ordered_operation_list = toposort(&operations_graph, None)
+            .map_err(|_| ServiceError::InvalidModel("The model's graph is not a DAG"))?;
 
-        ordered_operation_list.into_iter()
+        let execution_result = ordered_operation_list.into_iter()
             .try_for_each(|node| {
                 let incoming_data = operations_graph
                     .edges_directed(node, Direction::Incoming)
@@ -65,8 +78,11 @@ impl Service {
                     incoming_data
                 };
 
-                let operation_result = execute_operation::<P>(incoming_data, &input_parameters, &operations_graph[node]).map_err(|e| e.to_string());
-                let Ok(outgoing_data) = operation_result else { return ControlFlow::Break(operation_result)};
+                let operation_result = execute_operation::<P>(incoming_data, &input_parameters, &operations_graph[node]);
+                let outgoing_data = match operation_result {
+                    Ok(res) => res,
+                    Err(e) => return ControlFlow::Break(e),
+                };
 
                 // for each outgoing edge, set the data to the outgoing data
                 operations_graph
@@ -75,13 +91,20 @@ impl Service {
                     .for_each(|e| {
                         e.weight().replace(Some(outgoing_data.clone()));
                     });
+
                 // check if the current node is an output node
                 if let Operator::OutputCollector(_) = operations_graph[node] {
                     final_output = Some(outgoing_data);
                 }
+
                 ControlFlow::Continue(())
             });
-        final_output.ok_or("No output node found")
+
+        match execution_result {
+            ControlFlow::Continue(_) => (),
+            ControlFlow::Break(e) => return Err(ServiceError::CouldNotExecuteOperation(e)),
+        };
+        final_output.ok_or(ServiceError::OutputNodeNotFound)
     }
 }
 
@@ -140,33 +163,75 @@ where
         }
 
         Operator::Convolution(inits, attrs) => {
-            let TensorData::Float(operand) = inputs[0].clone() else {todo!("conv2d: invalid input tensor type")};
-            let TensorData::Float(weights) = inits.weights.clone() else {todo!("conv2d: invalid weights tensor type")};
+            let TensorData::Float(operand) = inputs[0].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("x"),
+                ));
+            };
+            let TensorData::Float(weights) = inits.weights.clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("weights"),
+                ));
+            };
 
-            let bias = inits.bias.clone().map(|b| match b {
-                TensorData::Float(b) => b.into_dimensionality::<ndarray::Ix1>().unwrap(),
-                _ => todo!("conv2d: invalid bias tensor type"),
-            });
+            let bias = inits
+                .bias
+                .clone()
+                .map(|b| match b {
+                    TensorData::Float(b) => {
+                        if b.ndim() != 1 {
+                            return Err(OperationError::WrongDim(1, b.ndim()));
+                        };
+                        Ok(b.into_dimensionality::<ndarray::Ix1>().unwrap())
+                    }
+                    _ => Err(OperationError::InvalidTensorType(
+                        operator.name(),
+                        String::from("bias"),
+                    )),
+                })
+                .transpose()?;
 
             let result = ChosenProvider::conv(operand, weights, bias, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::Clip(attrs) => {
-            let TensorData::Float(operand) = inputs[0].clone() else {todo!("clip: invalid input tensor type")};
+            let TensorData::Float(operand) = inputs[0].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("X"),
+                ));
+            };
             let result = ChosenProvider::clip(operand, attrs.clone());
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::Add => {
-            let TensorData::Float(lhs) = inputs[0].clone() else {todo!("add: invalid input tensor type")};
-            let TensorData::Float(rhs) = inputs[1].clone() else {todo!("add: invalid input tensor type")};
+            let TensorData::Float(lhs) = inputs[0].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("A"),
+                ));
+            };
+            let TensorData::Float(rhs) = inputs[1].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("B"),
+                ));
+            };
             let result = ChosenProvider::add(lhs, rhs)?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::Shape => {
-            let TensorData::Float(operand) = inputs[0].clone() else {todo!("shape: invalid input tensor type")};
+            let TensorData::Float(operand) = inputs[0].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("X"),
+                ));
+            };
             let result = ChosenProvider::shape(operand);
             let tensor = TensorData::Int64(result);
             Ok(tensor)
@@ -176,7 +241,12 @@ where
             let operand = match &inputs[0] {
                 TensorData::Int64(x) => x.map(|e| *e as usize),
                 TensorData::Int32(x) => x.map(|e| *e as usize),
-                _ => todo!("gather: invalid input tensor type"),
+                _ => {
+                    return Err(OperationError::InvalidTensorType(
+                        operator.name(),
+                        String::from("X"),
+                    ))
+                }
             };
 
             let index = match inits.index.clone() {
@@ -188,7 +258,12 @@ where
                     .into_dimensionality::<ndarray::Ix0>()
                     .unwrap()
                     .into_scalar() as usize,
-                _ => todo!("gather: invalid index tensor type"),
+                _ => {
+                    return Err(OperationError::InvalidTensorType(
+                        operator.name(),
+                        String::from("index"),
+                    ))
+                }
             };
 
             let result = ChosenProvider::gather(operand, index, attrs.clone())?;
@@ -199,7 +274,12 @@ where
             let operand = match &inputs[0] {
                 TensorData::Int64(x) => x.map(|e| *e as usize),
                 TensorData::Int32(x) => x.map(|e| *e as usize),
-                _ => todo!("gather: invalid input tensor type"),
+                _ => {
+                    return Err(OperationError::InvalidTensorType(
+                        operator.name(),
+                        String::from("X"),
+                    ))
+                }
             };
 
             let result = ChosenProvider::unsqueeze(operand, attrs.clone())?;
@@ -218,41 +298,101 @@ where
             Ok(tensor)
         }
         Operator::GlobalAveragePool => {
-            let TensorData::Float(operand) = inputs[0].clone() else {todo!("global_average_pool: invalid input tensor type")};
+            let TensorData::Float(operand) = inputs[0].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("X"),
+                ));
+            };
             let result = ChosenProvider::global_average_pool(operand)?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::Reshape(inits) => {
-            let TensorData::Float(operand) = inputs[0].clone() else {todo!("reshape: invalid input tensor type")};
-            let TensorData::Int64(shape) = inits.shape.clone() else {todo!("reshape: invalid shape tensor type")};
+            let TensorData::Float(operand) = inputs[0].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("X"),
+                ));
+            };
+            let TensorData::Int64(shape) = inits.shape.clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("X"),
+                ));
+            };
 
             let result = ChosenProvider::reshape(operand, shape)?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::Gemm(inits, attrs) => {
-            let TensorData::Float(matrix_a) = inputs[0].clone() else {todo!("gemm: invalid input tensor type")};
-            let TensorData::Float(matrix_b) = inits.b.clone() else {todo!("gemm: invalid B matrix tensor type")};
-            let TensorData::Float(matrix_c) = inits.c.clone() else {todo!("gemm: invalid C matrix tensor type")};
+            let TensorData::Float(matrix_a) = inputs[0].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("A"),
+                ));
+            };
+            let TensorData::Float(matrix_b) = inits.b.clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("B"),
+                ));
+            };
+            let TensorData::Float(matrix_c) = inits.c.clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("C"),
+                ));
+            };
 
             let result = ChosenProvider::gemm(matrix_a, matrix_b, matrix_c, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::MaxPool(attrs) => {
-            let TensorData::Float(operand) = inputs[0].clone() else {todo!("max_pool: invalid input tensor type")};
+            let TensorData::Float(operand) = inputs[0].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("X"),
+                ));
+            };
             let result = ChosenProvider::max_pool(operand, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
         Operator::BatchNorm(inits, attrs) => {
             //TODO: check for doubles as well
-            let TensorData::Float(operand) = inputs[0].clone() else {todo!("batch_norm: invalid input tensor type")};
-            let TensorData::Float(scale) = inits.scale.clone() else {todo!("batch_norm: invalid scale tensor type")};
-            let TensorData::Float(bias) = inits.bias.clone() else {todo!("batch_norm: invalid bias tensor type")};
-            let TensorData::Float(mean) = inits.mean.clone() else {todo!("batch_norm: invalid mean tensor type")};
-            let TensorData::Float(var) = inits.var.clone() else {todo!("batch_norm: invalid var tensor type")};
+            let TensorData::Float(operand) = inputs[0].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("X"),
+                ));
+            };
+            let TensorData::Float(scale) = inits.scale.clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("scale"),
+                ));
+            };
+            let TensorData::Float(bias) = inits.bias.clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("bias"),
+                ));
+            };
+            let TensorData::Float(mean) = inits.mean.clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("mean"),
+                ));
+            };
+            let TensorData::Float(var) = inits.var.clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("var"),
+                ));
+            };
 
             let result =
                 ChosenProvider::batch_norm(operand, scale, bias, mean, var, attrs.clone())?;
@@ -260,7 +400,12 @@ where
             Ok(tensor)
         }
         Operator::ReLU => {
-            let TensorData::Float(operand) = inputs[0].clone() else {todo!("relu: invalid input tensor type")};
+            let TensorData::Float(operand) = inputs[0].clone() else {
+                return Err(OperationError::InvalidTensorType(
+                    operator.name(),
+                    String::from("X"),
+                ));
+            };
             let result = ChosenProvider::relu(operand);
             let tensor = TensorData::Float(result);
             Ok(tensor)
@@ -321,10 +466,14 @@ mod tests {
         let input = read_testset(&format!("tests/testset/{}/input_0.pb", testset_folder));
 
         // convert the TensorData to an ArrayD
-        let Tensor::Constant(TensorData::Float(input)) = input else {panic!("Invalid input type")};
+        let Tensor::Constant(TensorData::Float(input)) = input else {
+            panic!("Invalid input type")
+        };
 
         let result = service.run(input, input_parameters);
-        let TensorData::Float(result) = result.unwrap() else {panic!("Invalid result type")};
+        let TensorData::Float(result) = result.unwrap() else {
+            panic!("Invalid result type")
+        };
         let result = result
             .into_dimensionality::<ndarray::Ix2>()
             .expect("Invalid result dimensionality");
@@ -337,7 +486,8 @@ mod tests {
             .unwrap();
         let expected_output = TensorProto::decode(expected_output_buffer.as_slice()).unwrap();
 
-        let Tensor::Constant(TensorData::Float(expected_output)) = Tensor::from(expected_output) else {
+        let Tensor::Constant(TensorData::Float(expected_output)) = Tensor::from(expected_output)
+        else {
             panic!("Invalid expected output type")
         };
         let expected_output = expected_output
@@ -366,7 +516,9 @@ mod tests {
         let result = service
             .run(preprocessed_image.into_dyn(), input_parameters)
             .unwrap();
-        let TensorData::Float(result) = result else {panic!("Invalid result type")};
+        let TensorData::Float(result) = result else {
+            panic!("Invalid result type")
+        };
         let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
         let result = postprocessing(result);
 
@@ -376,7 +528,9 @@ mod tests {
         //}
 
         let result = postprocessing_top_k(result, 1);
-        let [top_result, ..] = result.as_slice() else {panic!("The final output should have at least one element")};
+        let [top_result, ..] = result.as_slice() else {
+            panic!("The final output should have at least one element")
+        };
         let (top_class, _probability) = top_result;
         top_class.clone()
     }

@@ -69,6 +69,8 @@ pub enum OperationError {
     UnsupportedOperator,
     #[error("The specified operator(s) are not valid")]
     InvalidOperator,
+    #[error("The tensor `{1}` type is not valid for the operator `{0}`")]
+    InvalidTensorType(String, String),
     #[error("Unknwon operation error")]
     Unknown,
 }
