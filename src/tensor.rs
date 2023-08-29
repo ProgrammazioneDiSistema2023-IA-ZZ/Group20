@@ -176,16 +176,16 @@ pub enum TensorDataType {
 #[derive(Debug, Clone)]
 pub enum TensorData {
     Float(ArrayD<f32>),
+    Double(ArrayD<f64>),
     Uint8(ArrayD<u8>),
-    Int8(ArrayD<i8>),
     Uint16(ArrayD<u16>),
+    Uint32(ArrayD<u32>),
+    Uint64(ArrayD<u64>),
+    Int8(ArrayD<i8>),
     Int16(ArrayD<i16>),
     Int32(ArrayD<i32>),
     Int64(ArrayD<i64>),
     String(ArrayD<String>),
-    Double(ArrayD<f64>),
-    Uint32(ArrayD<u32>),
-    Uint64(ArrayD<u64>),
 }
 
 pub trait TensorDataIntoDimensionality<T>
@@ -195,13 +195,6 @@ where
     fn into_dimensionality<D>(self) -> ArrayBase<OwnedRepr<T>, D>
     where
         D: ndarray::Dimension;
-}
-
-pub trait TensorDataIntoRawData<T>
-where
-    T: TypeToTensorDataType + Copy,
-{
-    fn into_raw_data(self) -> Vec<u8>;
 }
 
 pub trait DynamicTensorData<T>
@@ -361,6 +354,31 @@ fn convert_proto_to_tensor_data(proto: TensorProto, dimensions: Vec<usize>) -> T
             };
             TensorData::Uint64(ArrayD::from_shape_vec(IxDyn(&dimensions), data).unwrap())
         }
+    }
+}
+
+/// This macro is used to map for each TensorData variant to a common action, that is independent of the actual data type.
+macro_rules! dynamic_map {
+    ($dyn_tensor_data:expr, |$data:pat_param| $action:expr) => {
+        match $dyn_tensor_data {
+            TensorData::Float($data) => $action,
+            TensorData::Double($data) => $action,
+            TensorData::Uint8($data) => $action,
+            TensorData::Uint16($data) => $action,
+            TensorData::Uint32($data) => $action,
+            TensorData::Uint64($data) => $action,
+            TensorData::Int8($data) => $action,
+            TensorData::Int16($data) => $action,
+            TensorData::Int32($data) => $action,
+            TensorData::Int64($data) => $action,
+            TensorData::String($data) => $action,
+        }
+    };
+}
+
+impl TensorData {
+    pub fn shape(&self) -> &[usize] {
+        dynamic_map!(self, |data| data.shape())
     }
 }
 

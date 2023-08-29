@@ -6,7 +6,6 @@ use crate::tensor::{Tensor, TensorData, TensorParametrizedShape};
 
 use petgraph::graph::NodeIndex;
 use petgraph::Graph;
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -87,16 +86,28 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
 
         let operator: Operator = match op_type.as_str() {
             "BatchNormalization" => {
-                let Some(epsilon) = node.attribute[0].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("epsilon"), operator: node_name, operator_type:String::from("BatchNormalization")})
+                let Some(epsilon) = node.attribute[0].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("epsilon"),
+                        operator: node_name,
+                        operator_type: String::from("BatchNormalization"),
+                    });
                 };
 
-                let Some(momentum) = node.attribute[1].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("momentum"), operator: node_name, operator_type:String::from("BatchNormalization")})
+                let Some(momentum) = node.attribute[1].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("momentum"),
+                        operator: node_name,
+                        operator_type: String::from("BatchNormalization"),
+                    });
                 };
 
-                let Some(spatial) = node.attribute[2].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("spatial"), operator: node_name, operator_type:String::from("BatchNormalization")})
+                let Some(spatial) = node.attribute[2].i else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("spatial"),
+                        operator: node_name,
+                        operator_type: String::from("BatchNormalization"),
+                    });
                 };
 
                 let attrs = BatchNormAttributes::new(epsilon, momentum, spatial);
@@ -116,16 +127,15 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                         }
                     };
 
-                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
-                            return Err(GraphError::UnexpectedError);
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else {
+                        return Err(GraphError::UnexpectedError);
                     };
 
                     useful_initializers.push(data);
                 }
 
                 if let [scale, b, mean, var] = &useful_initializers[..] {
-                    inps =
-                        BatchNormInputs::new(scale.clone(), b.clone(), mean.clone(), var.clone());
+                    inps = BatchNormInits::new(scale.clone(), b.clone(), mean.clone(), var.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
                         "Unable to retrieve inputs".to_string(),
@@ -179,17 +189,17 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                         }
                     };
 
-                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else {
                         return Err(GraphError::UnexpectedError);
-                };
+                    };
 
                     useful_initializers.push(data);
                 }
 
                 if let [weights, bias] = &useful_initializers[..] {
-                    inps = ConvInputs::new(weights.clone(), Some(bias.clone()));
+                    inps = ConvInits::new(weights.clone(), Some(bias.clone()));
                 } else if let [weights] = &useful_initializers[..] {
-                    inps = ConvInputs::new(weights.clone(), None);
+                    inps = ConvInits::new(weights.clone(), None);
                 } else {
                     return Err(GraphError::DeconstructError(
                         "Unable to retrieve inputs".to_string(),
@@ -249,7 +259,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                         }
                     };
 
-                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else {
                         return Err(GraphError::UnexpectedError);
                     };
 
@@ -257,7 +267,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 }
 
                 if let [shape] = &useful_initializers[..] {
-                    inps = ReshapeInputs::new(shape.clone());
+                    inps = ReshapeInits::new(shape.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
                         "Unable to retrieve inputs".to_string(),
@@ -267,20 +277,36 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 Operator::Reshape(inps)
             }
             "Gemm" => {
-                let Some(alpha) = node.attribute[0].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("alpha"), operator: node_name, operator_type:String::from("Gemm")});
+                let Some(alpha) = node.attribute[0].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("alpha"),
+                        operator: node_name,
+                        operator_type: String::from("Gemm"),
+                    });
                 };
 
-                let Some(beta) = node.attribute[1].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("beta"), operator: node_name, operator_type:String::from("Gemm")});
+                let Some(beta) = node.attribute[1].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("beta"),
+                        operator: node_name,
+                        operator_type: String::from("Gemm"),
+                    });
                 };
 
-                let Some(trans_a) = node.attribute[2].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("trans_a"), operator: node_name, operator_type:String::from("Gemm")});
+                let Some(trans_a) = node.attribute[2].i else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("trans_a"),
+                        operator: node_name,
+                        operator_type: String::from("Gemm"),
+                    });
                 };
 
-                let Some(trans_b) = node.attribute[3].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("trans_b"), operator: node_name, operator_type:String::from("Gemm")});
+                let Some(trans_b) = node.attribute[3].i else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("trans_b"),
+                        operator: node_name,
+                        operator_type: String::from("Gemm"),
+                    });
                 };
 
                 let attrs: GemmAttributes = GemmAttributes::new(alpha, beta, trans_a, trans_b);
@@ -300,7 +326,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                         }
                     };
 
-                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else {
                         return Err(GraphError::UnexpectedError);
                     };
 
@@ -308,7 +334,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 }
 
                 if let [b, c] = &useful_initializers[..] {
-                    inps = GemmInputs::new(b.clone(), c.clone());
+                    inps = GemmInits::new(b.clone(), c.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
                         "Unable to retrieve inputs".to_string(),
@@ -318,12 +344,20 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 Operator::Gemm(inps, attrs)
             }
             "Clip" => {
-                let Some(min) = node.attribute[1].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("min"), operator: node_name, operator_type:String::from("Clip")});
+                let Some(min) = node.attribute[1].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("min"),
+                        operator: node_name,
+                        operator_type: String::from("Clip"),
+                    });
                 };
 
-                let Some(max) = node.attribute[0].f else{
-                    return Err(GraphError::MissingOperand { operand: String::from("max"), operator: node_name, operator_type:String::from("Clip")});
+                let Some(max) = node.attribute[0].f else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("max"),
+                        operator: node_name,
+                        operator_type: String::from("Clip"),
+                    });
                 };
 
                 let attrs: ClipAttributes = ClipAttributes::new(min, max);
@@ -337,8 +371,12 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 Operator::Shape
             }
             "Gather" => {
-                let Some(axes) = node.attribute[0].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("axes"), operator: node_name, operator_type:String::from("Gather")});
+                let Some(axes) = node.attribute[0].i else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("axes"),
+                        operator: node_name,
+                        operator_type: String::from("Gather"),
+                    });
                 };
 
                 let attrs: GatherAttributes = GatherAttributes::new(axes as usize);
@@ -358,7 +396,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                         }
                     };
 
-                    let Tensor::Constant(data) = Tensor::from(v.clone()) else{
+                    let Tensor::Constant(data) = Tensor::from(v.clone()) else {
                         return Err(GraphError::UnexpectedError);
                     };
 
@@ -366,7 +404,7 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 }
 
                 if let [index] = &useful_initializers[..] {
-                    inps = GatherInputs::new(index.clone());
+                    inps = GatherInits::new(index.clone());
                 } else {
                     return Err(GraphError::DeconstructError(
                         "Unable to retrieve inputs".to_string(),
@@ -384,8 +422,12 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
                 Operator::Unsqueeze(attrs)
             }
             "Concat" => {
-                let Some(axes) = node.attribute[0].i else{
-                    return Err(GraphError::MissingOperand { operand: String::from("axes"), operator: node_name, operator_type:String::from("Concat")});
+                let Some(axes) = node.attribute[0].i else {
+                    return Err(GraphError::MissingOperand {
+                        operand: String::from("axes"),
+                        operator: node_name,
+                        operator_type: String::from("Concat"),
+                    });
                 };
                 let attrs: ConcatAttributes = ConcatAttributes::new(axes as usize);
 
@@ -443,7 +485,6 @@ fn parse_model_io_node(
         .find_map(|value_info| {
             let node_name = value_info.name.clone().unwrap_or_default();
             let tensor = Tensor::try_from(value_info.clone()).ok()?;
-            //TODO: check this code
             if !tensor.is_parametrized_io() {
                 return None;
             }

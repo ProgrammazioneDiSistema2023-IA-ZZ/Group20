@@ -1,19 +1,19 @@
-///
-/// # Operator
-///
-/// This module define the ONNX Operator structures.
-///
-/// Currently it only defines the subset of Operator used to execute the selected neural networks
-///
-mod convolution;
-mod minor;
+//! # Operator
+//!
+//! This module define the ONNX Operators structures.
+//!
+//! Currently it only defines the subset of operators used to execute two chosen neural networks
+//! (ResNet18 and MobileNetV2).
+//!
 
-pub use convolution::*;
-pub use minor::*;
+mod attributes;
+mod initializers;
+
+pub use attributes::*;
+pub use initializers::*;
 
 use crate::tensor::TensorParametrizedShape;
 use thiserror::Error;
-
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -21,18 +21,18 @@ pub enum Operator {
     InputFeed(TensorParametrizedShape),
     OutputCollector(TensorParametrizedShape),
 
-    Convolution(ConvInputs, ConvAttributes),
+    Convolution(ConvInits, ConvAttributes),
     Clip(ClipAttributes),
     Add,
     Shape,
-    Gather(GatherInputs, GatherAttributes),
+    Gather(GatherInits, GatherAttributes),
     Unsqueeze(UnsqueezeAttributes),
     Concat(ConcatAttributes),
     GlobalAveragePool,
-    Reshape(ReshapeInputs),
-    Gemm(GemmInputs, GemmAttributes),
+    Reshape(ReshapeInits),
+    Gemm(GemmInits, GemmAttributes),
     MaxPool(MaxPoolAttributes),
-    BatchNorm(BatchNormInputs, BatchNormAttributes),
+    BatchNorm(BatchNormInits, BatchNormAttributes),
     ReLU,
 }
 
@@ -70,6 +70,8 @@ pub enum OperationError {
     UnsupportedOperator,
     #[error("The specified operator(s) are not valid")]
     InvalidOperator,
+    #[error("The tensor `{1}` type is not valid for the operator `{0}`")]
+    InvalidTensorType(String, String),
     #[error("Unknwon operation error")]
     Unknown,
 }

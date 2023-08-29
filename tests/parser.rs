@@ -16,7 +16,7 @@ use onnx_runtime::onnx_format::{
 #[test]
 fn deserialize_prebuilt_model() {
     let mut buffer = Vec::new();
-    let mut file = File::open("tests/models/mobilenetv2-10.onnx").unwrap();
+    let mut file = File::open("tests/models/mobilenetv2-7.onnx").unwrap();
     file.read_to_end(&mut buffer).unwrap();
 
     let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
