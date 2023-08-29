@@ -445,14 +445,14 @@ mod tests {
     fn run_resnet_with_siamese_cat_image() {
         let most_probable_class =
             run_with_image_input("resnet18-v2-7", "tests/images/siamese-cat.jpg");
-        assert_eq!(most_probable_class, "n02123597 Siamese cat, Siamese");
+        assert_eq!(most_probable_class, "Siamese cat, Siamese");
     }
 
     #[test]
     fn run_mobilenet_with_siamese_cat_image() {
         let most_probable_class =
             run_with_image_input("mobilenetv2-7", "tests/images/siamese-cat.jpg");
-        assert_eq!(most_probable_class, "n02123597 Siamese cat, Siamese");
+        assert_eq!(most_probable_class, "Siamese cat, Siamese");
     }
 
     fn test_service(model_name: &str, testset_folder: &str) {
