@@ -5,6 +5,7 @@ pub use naive::*;
 pub use parallel::*;
 
 use ndarray::{Array1, ArrayD};
+use rayon::ThreadPool;
 
 use crate::{
     operators::{
@@ -33,6 +34,7 @@ pub trait Provider {
     fn version(&self) -> u64;
 
     fn conv(
+        thread_pool: &ThreadPool,
         x: ArrayD<f32>,
         weights: ArrayD<f32>,
         bias: Option<Array1<f32>>,
@@ -40,6 +42,7 @@ pub trait Provider {
     ) -> Result<ArrayD<f32>, OperationError>;
 
     fn gemm(
+        thread_pool: &ThreadPool,
         a: ArrayD<f32>,
         b: ArrayD<f32>,
         c: ArrayD<f32>,
@@ -47,6 +50,7 @@ pub trait Provider {
     ) -> Result<ArrayD<f32>, OperationError>;
 
     fn batch_norm(
+        thread_pool: &ThreadPool,
         x: ArrayD<f32>,
         scale: ArrayD<f32>,
         b: ArrayD<f32>,
@@ -56,24 +60,45 @@ pub trait Provider {
     ) -> Result<ArrayD<f32>, OperationError>;
 
     fn gather(
+        thread_pool: &ThreadPool,
         x: ArrayD<usize>,
         index: usize,
         attrs: GatherAttributes,
     ) -> Result<ArrayD<usize>, OperationError>;
 
     fn unsqueeze(
+        thread_pool: &ThreadPool,
         x: ArrayD<usize>,
         attrs: UnsqueezeAttributes,
     ) -> Result<ArrayD<usize>, OperationError>;
 
-    fn relu(x: ArrayD<f32>) -> ArrayD<f32>;
-    fn clip(x: ArrayD<f32>, attrs: ClipAttributes) -> ArrayD<f32>;
-    fn add(x: ArrayD<f32>, y: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError>;
-    fn shape(x: ArrayD<f32>) -> ArrayD<i64>;
-    fn global_average_pool(x: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError>;
-    fn reshape(x: ArrayD<f32>, shape: ArrayD<i64>) -> Result<ArrayD<f32>, OperationError>;
-    fn max_pool(x: ArrayD<f32>, attrs: MaxPoolAttributes) -> Result<ArrayD<f32>, OperationError>;
-    fn concat<T>(x: Vec<ArrayD<T>>, attrs: ConcatAttributes) -> Result<ArrayD<T>, OperationError>
+    fn relu(thread_pool: &ThreadPool, x: ArrayD<f32>) -> ArrayD<f32>;
+    fn clip(thread_pool: &ThreadPool, x: ArrayD<f32>, attrs: ClipAttributes) -> ArrayD<f32>;
+    fn add(
+        thread_pool: &ThreadPool,
+        x: ArrayD<f32>,
+        y: ArrayD<f32>,
+    ) -> Result<ArrayD<f32>, OperationError>;
+    fn shape(thread_pool: &ThreadPool, x: ArrayD<f32>) -> ArrayD<i64>;
+    fn global_average_pool(
+        thread_pool: &ThreadPool,
+        x: ArrayD<f32>,
+    ) -> Result<ArrayD<f32>, OperationError>;
+    fn reshape(
+        thread_pool: &ThreadPool,
+        x: ArrayD<f32>,
+        shape: ArrayD<i64>,
+    ) -> Result<ArrayD<f32>, OperationError>;
+    fn max_pool(
+        thread_pool: &ThreadPool,
+        x: ArrayD<f32>,
+        attrs: MaxPoolAttributes,
+    ) -> Result<ArrayD<f32>, OperationError>;
+    fn concat<T>(
+        thread_pool: &ThreadPool,
+        x: Vec<ArrayD<T>>,
+        attrs: ConcatAttributes,
+    ) -> Result<ArrayD<T>, OperationError>
     where
         T: TypeToTensorDataType + Copy;
 }

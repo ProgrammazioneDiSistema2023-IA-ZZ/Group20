@@ -12,22 +12,48 @@ fn bench_with_cat_image(c: &mut Criterion) {
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(100));
     group.bench_function("Cat resnet", move |b| {
-        b.iter(|| run_with_cat_image(black_box("resnet18-v2-7")))
+        b.iter(|| run_with_cat_image(black_box("resnet18-v2-7"), 1))
     });
     group.bench_function("Cat mobilenet", move |b| {
-        b.iter(|| run_with_cat_image(black_box("mobilenetv2-7")))
+        b.iter(|| run_with_cat_image(black_box("mobilenetv2-7"), 1))
     });
     group.finish();
 }
 
-fn run_with_cat_image(model_name: &str) -> ndarray::Array1<f32> {
+fn bench_with_cat_image_4(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Runtime");
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(100));
+    group.bench_function("Cat resnet 4", move |b| {
+        b.iter(|| run_with_cat_image(black_box("resnet18-v2-7"), 4))
+    });
+    group.bench_function("Cat mobilenet 4", move |b| {
+        b.iter(|| run_with_cat_image(black_box("mobilenetv2-7"), 4))
+    });
+    group.finish();
+}
+
+fn bench_with_cat_image_2(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Runtime");
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(100));
+    group.bench_function("Cat resnet 2", move |b| {
+        b.iter(|| run_with_cat_image(black_box("resnet18-v2-7"), 2))
+    });
+    group.bench_function("Cat mobilenet 2", move |b| {
+        b.iter(|| run_with_cat_image(black_box("mobilenetv2-7"), 2))
+    });
+    group.finish();
+}
+
+fn run_with_cat_image(model_name: &str, num_threads: usize) -> ndarray::Array1<f32> {
     let image = image::open("tests/images/siamese-cat.jpg").unwrap();
     let preprocessed_image = preprocessing(image);
 
     let model_proto = read_model_proto(format!("tests/models/{}.onnx", model_name).as_str());
-    let config = Config { num_threads: 1 };
+    let config = Config { num_threads };
     let service = Service::new(model_proto, config);
-    let input_parameters = vec![];
+    let input_parameters = vec![("N".to_string(), 1_usize)];
     let result = service
         .run(preprocessed_image.into_dyn(), input_parameters)
         .unwrap();
@@ -44,4 +70,4 @@ fn read_model_proto(path: &str) -> ModelProto {
     ModelProto::decode(buffer.as_slice()).unwrap()
 }
 
-criterion_group!(runtime, bench_with_cat_image,);
+criterion_group!(runtime, bench_with_cat_image, bench_with_cat_image_2, bench_with_cat_image_4);

@@ -1,5 +1,6 @@
 use ndarray::{ArrayD, IxDyn};
 use petgraph::{algo::toposort, Direction};
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::{borrow::BorrowMut, ops::ControlFlow};
 use thiserror::Error;
 
@@ -26,11 +27,24 @@ pub enum ServiceError {
 pub struct Service {
     model: ModelProto,
     config: Config,
+    thread_pool: ThreadPool,
 }
 
 impl Service {
     pub fn new(model: ModelProto, config: Config) -> Self {
-        Self { model, config }
+        let n_threads = config.num_threads;
+        Self {
+            model,
+            config,
+            thread_pool: ThreadPoolBuilder::new()
+                .num_threads(n_threads)
+                .build()
+                .expect("Unable to create ThreadPool"),
+        }
+    }
+
+    pub fn current_config(&self) -> Config {
+        self.config.clone()
     }
 
     /// Runs the service on the input data, using the input parameters and the default execution provider (naive).
@@ -78,7 +92,7 @@ impl Service {
                     incoming_data
                 };
 
-                let operation_result = execute_operation::<P>(incoming_data, &input_parameters, &operations_graph[node]);
+                let operation_result = execute_operation::<P>(incoming_data, &input_parameters, &operations_graph[node], &self.thread_pool);
                 let outgoing_data = match operation_result {
                     Ok(res) => res,
                     Err(e) => return ControlFlow::Break(e),
@@ -112,6 +126,7 @@ fn execute_operation<ChosenProvider>(
     inputs: Vec<TensorData>,
     input_parameters: &[(String, usize)],
     operator: &Operator,
+    thread_pool: &ThreadPool,
 ) -> Result<TensorData, OperationError>
 where
     ChosenProvider: Provider,
@@ -193,7 +208,7 @@ where
                 })
                 .transpose()?;
 
-            let result = ChosenProvider::conv(operand, weights, bias, attrs.clone())?;
+            let result = ChosenProvider::conv(thread_pool, operand, weights, bias, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -204,7 +219,7 @@ where
                     String::from("X"),
                 ));
             };
-            let result = ChosenProvider::clip(operand, attrs.clone());
+            let result = ChosenProvider::clip(thread_pool, operand, attrs.clone());
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -221,7 +236,7 @@ where
                     String::from("B"),
                 ));
             };
-            let result = ChosenProvider::add(lhs, rhs)?;
+            let result = ChosenProvider::add(thread_pool, lhs, rhs)?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -232,7 +247,7 @@ where
                     String::from("X"),
                 ));
             };
-            let result = ChosenProvider::shape(operand);
+            let result = ChosenProvider::shape(thread_pool, operand);
             let tensor = TensorData::Int64(result);
             Ok(tensor)
         }
@@ -266,7 +281,7 @@ where
                 }
             };
 
-            let result = ChosenProvider::gather(operand, index, attrs.clone())?;
+            let result = ChosenProvider::gather(thread_pool, operand, index, attrs.clone())?;
             let tensor = TensorData::Int64(result.map(|e| *e as i64).into_dyn());
             Ok(tensor)
         }
@@ -282,7 +297,7 @@ where
                 }
             };
 
-            let result = ChosenProvider::unsqueeze(operand, attrs.clone())?;
+            let result = ChosenProvider::unsqueeze(thread_pool, operand, attrs.clone())?;
             let tensor = TensorData::Int64(result.map(|e| *e as i64).into_dyn());
             Ok(tensor)
         }
@@ -293,7 +308,7 @@ where
                 .map(|input| input.into_dimensionality::<IxDyn>())
                 .collect::<Vec<ArrayD<_>>>();
             //TODO: fix dynamic operation. Maybe use a byte array for all the operations like this that can take any input type
-            let result = ChosenProvider::concat::<f32>(operands, attrs.clone())?;
+            let result = ChosenProvider::concat::<f32>(thread_pool, operands, attrs.clone())?;
             let tensor = TensorData::new_dyn(result);
             Ok(tensor)
         }
@@ -304,7 +319,7 @@ where
                     String::from("X"),
                 ));
             };
-            let result = ChosenProvider::global_average_pool(operand)?;
+            let result = ChosenProvider::global_average_pool(thread_pool, operand)?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -322,7 +337,7 @@ where
                 ));
             };
 
-            let result = ChosenProvider::reshape(operand, shape)?;
+            let result = ChosenProvider::reshape(thread_pool, operand, shape)?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -346,7 +361,7 @@ where
                 ));
             };
 
-            let result = ChosenProvider::gemm(matrix_a, matrix_b, matrix_c, attrs.clone())?;
+            let result = ChosenProvider::gemm(thread_pool, matrix_a, matrix_b, matrix_c, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -357,7 +372,7 @@ where
                     String::from("X"),
                 ));
             };
-            let result = ChosenProvider::max_pool(operand, attrs.clone())?;
+            let result = ChosenProvider::max_pool(thread_pool, operand, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -395,7 +410,7 @@ where
             };
 
             let result =
-                ChosenProvider::batch_norm(operand, scale, bias, mean, var, attrs.clone())?;
+                ChosenProvider::batch_norm(thread_pool, operand, scale, bias, mean, var, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -406,19 +421,21 @@ where
                     String::from("X"),
                 ));
             };
-            let result = ChosenProvider::relu(operand);
+            let result = ChosenProvider::relu(thread_pool, operand);
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Config {
     pub num_threads: usize,
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::providers::ParProvider;
     use crate::tensor::{Tensor, TensorData};
     use image::codecs::jpeg::JpegEncoder;
     use prost::Message;
@@ -509,12 +526,12 @@ mod tests {
         //preprocessed_image_to_file(&preprocessed_image, "tests/preprocessed_cat.jpg");
 
         let model_proto = read_model_proto(&format!("tests/models/{}.onnx", model_name));
-        let config = Config { num_threads: 1 };
+        let config = Config { num_threads: 4 };
         let service = Service::new(model_proto, config);
         let input_parameters = vec![(String::from("N"), 1_usize)];
 
         let result = service
-            .run(preprocessed_image.into_dyn(), input_parameters)
+            .run_with_provider::<ParProvider>(preprocessed_image.into_dyn(), input_parameters)
             .unwrap();
         let TensorData::Float(result) = result else {
             panic!("Invalid result type")

@@ -1,11 +1,20 @@
 use criterion::{criterion_group, Criterion};
+use lazy_static::lazy_static;
 use ndarray::{ArrayD, Ix1, IxDyn};
 use npy::NpyData;
 use onnx_runtime::{
     operators::*,
     providers::{NaiveProvider, Provider},
 };
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::{fs::File, io::Read, ops::Sub, time::Duration};
+
+lazy_static! {
+    static ref THREAD_POOL_1: ThreadPool = ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .expect("Unable to create ThreadPool");
+}
 
 fn load(path: &str, shape: &[usize]) -> ArrayD<f32> {
     let mut buf = vec![];
@@ -26,7 +35,7 @@ fn convolution_big() {
         .unwrap();
     let y = load("tests/tensors/convolution/big/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
+    let my_y = NaiveProvider::conv(&THREAD_POOL_1, x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     //println!("avg error = {}", err);
     assert!(err < 1e-4);
@@ -45,7 +54,7 @@ fn convolution_huge() {
         .unwrap();
     let y = load("tests/tensors/convolution/huge/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = NaiveProvider::conv(x, w, Some(b), attrs).unwrap();
+    let my_y = NaiveProvider::conv(&THREAD_POOL_1, x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     //println!("avg error = {}", err);
     assert!(err < 1e-4);
