@@ -1,6 +1,8 @@
 mod naive;
+mod parallel;
 
 pub use naive::*;
+pub use parallel::*;
 
 use ndarray::{Array1, ArrayD};
 

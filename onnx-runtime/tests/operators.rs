@@ -1,7 +1,7 @@
 use ndarray::{arr1, arr2, ArrayD, Ix1, IxDyn};
 use npy::NpyData;
 use onnx_runtime::operators::*;
-use onnx_runtime::providers::{NaiveProvider, Provider};
+use onnx_runtime::providers::{NaiveProvider, Provider, ParProvider};
 use std::fs::File;
 use std::io::Read;
 use std::ops::Sub;
@@ -390,4 +390,38 @@ fn test_max_pool() {
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
+}
+
+#[test]
+fn test_par_max_pool() {
+    rayon::ThreadPoolBuilder::new().num_threads(1).build_global().unwrap();
+    let shape_x = [8, 4, 9, 9];
+    let shape_y = [8, 4, 5, 5];
+    let x: ArrayD<f32> = load("tests/tensors/maxpool/x.npy", &shape_x);
+    let y: ArrayD<f32> = load("tests/tensors/maxpool/y.npy", &shape_y);
+    let attrs = MaxPoolAttributes::new([3, 3], [1, 1, 1, 1], [2, 2]);
+    let my_y = ParProvider::max_pool(x, attrs).unwrap();
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
+fn test_par_convolution_big() {
+    rayon::ThreadPoolBuilder::new().num_threads(4).build_global().unwrap();
+    let x_shape = [1, 64, 224, 224];
+    let w_shape = [64, 64, 3, 3];
+    let b_shape = [64];
+    let y_shape = [1, 64, 224, 224];
+    let x = load("tests/tensors/convolution/big/x.npy", &x_shape);
+    let w = load("tests/tensors/convolution/big/w.npy", &w_shape);
+    let b = load("tests/tensors/convolution/big/b.npy", &b_shape)
+        .into_dimensionality::<Ix1>()
+        .unwrap();
+    let y = load("tests/tensors/convolution/big/y.npy", &y_shape);
+    let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
+    let my_y = ParProvider::conv(x, w, Some(b), attrs).unwrap();
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    //println!("avg error = {}", err);
+    assert!(err < 1e-4);
 }
