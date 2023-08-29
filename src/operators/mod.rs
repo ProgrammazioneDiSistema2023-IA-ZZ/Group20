@@ -1,9 +1,9 @@
 ///
-/// # Operators
+/// # Operator
 ///
-/// This module define the ONNX operators structures.
+/// This module define the ONNX Operator structures.
 ///
-/// Currently it only defines the subset of operators used to execute the selected neural networks
+/// Currently it only defines the subset of Operator used to execute the selected neural networks
 ///
 mod convolution;
 mod minor;
@@ -11,23 +11,51 @@ mod minor;
 pub use convolution::*;
 pub use minor::*;
 
+use crate::tensor::TensorParametrizedShape;
 use thiserror::Error;
 
+
 #[allow(dead_code)]
-pub enum Operators {
-    Convolution(ConvAttributes),
+#[derive(Debug, Clone)]
+pub enum Operator {
+    InputFeed(TensorParametrizedShape),
+    OutputCollector(TensorParametrizedShape),
+
+    Convolution(ConvInputs, ConvAttributes),
     Clip(ClipAttributes),
     Add,
     Shape,
-    Gather(GatherAttributes),
+    Gather(GatherInputs, GatherAttributes),
     Unsqueeze(UnsqueezeAttributes),
     Concat(ConcatAttributes),
     GlobalAveragePool,
-    Reshape,
-    Gemm(GemmAttributes),
+    Reshape(ReshapeInputs),
+    Gemm(GemmInputs, GemmAttributes),
     MaxPool(MaxPoolAttributes),
-    BatchNorm(BatchNormAttributes),
+    BatchNorm(BatchNormInputs, BatchNormAttributes),
     ReLU,
+}
+
+impl Operator {
+    pub fn name(&self) -> String {
+        match self {
+            Operator::InputFeed(_) => "InputFeed".to_string(),
+            Operator::OutputCollector(_) => "OutputCollector".to_string(),
+            Operator::Convolution(_, _) => "Convolution".to_string(),
+            Operator::Clip(_) => "Clip".to_string(),
+            Operator::Add => "Add".to_string(),
+            Operator::Shape => "Shape".to_string(),
+            Operator::Gather(_, _) => "Gather".to_string(),
+            Operator::Unsqueeze(_) => "Unsqueeze".to_string(),
+            Operator::Concat(_) => "Concat".to_string(),
+            Operator::GlobalAveragePool => "GlobalAveragePool".to_string(),
+            Operator::Reshape(_) => "Reshape".to_string(),
+            Operator::Gemm(_, _) => "Gemm".to_string(),
+            Operator::MaxPool(_) => "MaxPool".to_string(),
+            Operator::BatchNorm(_, _) => "BatchNorm".to_string(),
+            Operator::ReLU => "ReLU".to_string(),
+        }
+    }
 }
 
 #[derive(Error, Debug)]

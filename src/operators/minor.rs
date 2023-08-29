@@ -1,8 +1,11 @@
 use ndarray::{ArrayD, Ix0, Ix2, IxDyn};
 use std::ops::Add;
 
+use crate::tensor::{TensorData, TypeToTensorDataType};
+
 use super::OperationError;
 
+#[derive(Debug, Clone)]
 pub struct ClipAttributes {
     min: f32,
     max: f32,
@@ -33,11 +36,27 @@ pub fn add(x: ArrayD<f32>, y: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError
     }
 }
 
-pub fn shape(x: ArrayD<f32>) -> ArrayD<usize> {
-    ArrayD::<usize>::from_shape_vec(IxDyn(&[x.ndim()]), x.shape().to_vec()).unwrap()
+pub fn shape(x: ArrayD<f32>) -> ArrayD<i64> {
+    ArrayD::<i64>::from_shape_vec(
+        IxDyn(&[x.ndim()]),
+        x.shape().iter().map(|e| *e as i64).collect(),
+    )
+    .unwrap()
 }
 
-#[derive(Default)]
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct GatherInputs {
+    pub index: TensorData,
+}
+
+impl GatherInputs {
+    pub fn new(index: TensorData) -> Self {
+        Self { index }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
 pub struct GatherAttributes {
     axes: usize,
 }
@@ -86,7 +105,10 @@ pub fn unsqueeze(
 
 pub type ConcatAttributes = GatherAttributes;
 
-pub fn concat(x: Vec<ArrayD<i64>>, attrs: ConcatAttributes) -> Result<ArrayD<i64>, OperationError> {
+pub fn concat<T>(x: Vec<ArrayD<T>>, attrs: ConcatAttributes) -> Result<ArrayD<T>, OperationError>
+where
+    T: TypeToTensorDataType + Copy,
+{
     if attrs.axes != 0 {
         Err(OperationError::UnsupportedOperator)
     } else if x.is_empty() {
@@ -114,6 +136,18 @@ pub fn global_average_pool(x: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError
     ))
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct ReshapeInputs {
+    pub shape: TensorData,
+}
+
+impl ReshapeInputs {
+    pub fn new(shape: TensorData) -> Self {
+        Self { shape }
+    }
+}
+
 pub fn reshape(x: ArrayD<f32>, shape: ArrayD<i64>) -> Result<ArrayD<f32>, OperationError> {
     if shape.len() != 2 {
         return Err(OperationError::WrongShape(
@@ -139,11 +173,25 @@ pub fn reshape(x: ArrayD<f32>, shape: ArrayD<i64>) -> Result<ArrayD<f32>, Operat
     }
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct GemmInputs {
+    pub b: TensorData,
+    pub c: TensorData,
+}
+
+impl GemmInputs {
+    pub fn new(b: TensorData, c: TensorData) -> Self {
+        Self { b, c }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct GemmAttributes {
-    alpha: f32,
-    beta: f32,
-    trans_a: i64,
-    trans_b: i64,
+    pub alpha: f32,
+    pub beta: f32,
+    pub trans_a: i64,
+    pub trans_b: i64,
 }
 
 impl GemmAttributes {
@@ -169,15 +217,24 @@ pub fn gemm(
         trans_a,
         trans_b,
     } = attrs;
-    if a.ndim() != 2 {
+    if a.ndim() > 2 {
         return Err(OperationError::WrongDim(2, a.ndim()));
     }
-    if b.ndim() != 2 {
+    if b.ndim() > 2 {
         return Err(OperationError::WrongDim(2, b.ndim()));
     }
-    if c.ndim() != 2 {
+    if c.ndim() > 2 {
         return Err(OperationError::WrongDim(2, c.ndim()));
     }
+    let act_c = if c.ndim() == 2 {
+        c.into_dimensionality::<Ix2>().unwrap()
+    } else {
+        let n = c.len();
+        c.into_shape(IxDyn(&[1, n]))
+            .unwrap()
+            .into_dimensionality::<Ix2>()
+            .unwrap()
+    };
 
     let act_a = if trans_a == 0 {
         a.into_dimensionality::<Ix2>().unwrap()
@@ -196,16 +253,39 @@ pub fn gemm(
             format!("[{}, *]", act_b.shape()[0]),
         ));
     }
-    if act_b.shape()[1] != c.shape()[1] {
+    if act_b.shape()[1] != act_c.shape()[1] {
         return Err(OperationError::UnexpectedShape(
             format!("[*, {}]", act_b.shape()[1]),
-            format!("[*, {}]", c.shape()[1]),
+            format!("[*, {}]", act_c.shape()[1]),
         ));
     }
-    Ok(alpha * act_a.dot(&act_b) + beta * c)
+    Ok((alpha * act_a.dot(&act_b) + beta * act_c)
+        .into_dimensionality::<IxDyn>()
+        .unwrap())
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct BatchNormInputs {
+    pub scale: TensorData,
+    pub bias: TensorData,
+    pub mean: TensorData,
+    pub var: TensorData,
+}
+
+impl BatchNormInputs {
+    pub fn new(scale: TensorData, bias: TensorData, mean: TensorData, var: TensorData) -> Self {
+        Self {
+            scale,
+            bias,
+            mean,
+            var,
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct BatchNormAttributes {
     epsilon: f32,
     momentum: f32, // not used during inference

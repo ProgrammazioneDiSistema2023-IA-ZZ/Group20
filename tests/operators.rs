@@ -1,4 +1,4 @@
-use ndarray::{arr2, ArrayD, Ix1, IxDyn};
+use ndarray::{arr1, arr2, ArrayD, Ix1, IxDyn};
 use npy::NpyData;
 use onnx_runtime::operators::*;
 use std::fs::File;
@@ -230,7 +230,10 @@ fn test_shape() {
     let x_shape = [64, 32, 5, 5];
     let x = ArrayD::<f32>::from_shape_fn(IxDyn(&x_shape), |_| 0.0);
     let my_x_shape = shape(x);
-    assert_eq!(my_x_shape.into_raw_vec(), x_shape);
+    assert_eq!(
+        my_x_shape.into_raw_vec(),
+        x_shape.iter().map(|x| *x as i64).collect::<Vec<i64>>()
+    );
 }
 
 #[test]
@@ -304,7 +307,7 @@ fn test_gemm() {
     ])
     .into_dimensionality::<IxDyn>()
     .unwrap();
-    let c: ArrayD<f32> = arr2(&[[0.5, -0.5, 0.5, -0.5]])
+    let c: ArrayD<f32> = arr1(&[0.5, -0.5, 0.5, -0.5])
         .into_dimensionality::<IxDyn>()
         .unwrap();
     let attrs = GemmAttributes::new(2.0, 0.1, 0, 0);

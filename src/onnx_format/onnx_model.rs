@@ -1135,4 +1135,126 @@ impl OperatorStatus {
         }
     }
 }
+//
+// This file contains the proto definitions for OperatorSetProto and
+// OperatorProto.  OperatorSetProtos are used to describe a versioned
+// set of operators that can be used by a ModelProto.
+//
+// Like ModelProto, OperatorSetProto is defined as a top-level file/wire
+// format, however their usage is different.
+//
+// ModelProto files are used to describe executable graphs that can be
+// executed directly by a framework, runtime, or engine.
+//
+// OperatorSetProto files are used to describe a set of operators that are
+// available in a given environment.  The file TBD.TBD is the OperatorSetProto
+// that describes the ONNX standard operators.
+//
+
+/// An OperatorProto represents the immutable specification of the signature
+/// and semantics of an operator.
+///
+/// Operators are declared as part of an OperatorSet, which also defines the
+/// domain name for the set.
+///
+/// Operators are uniquely identified by a three part identifier
+///    (domain, op_type, since_version)
+/// where
+///    *domain* is the domain of an operator set that
+///       contains this operator specification.
+///
+///    *op_type* is the name of the operator as referenced by a
+///       NodeProto.op_type
+///
+///    *since_version* is the version of the operator set that
+///       this operator was initially declared in.
+///
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OperatorProto {
+    /// The name of the operator within a domain.
+    /// This field MUST be present in this version of the IR.
+    #[prost(string, optional, tag = "1")]
+    pub op_type: ::core::option::Option<::prost::alloc::string::String>,
+    /// The version of the operator set that first introduced this
+    /// operator. This value MUST be the same value as the
+    /// opset_version of the operator set that first published this operator.
+    /// Subsequent versions of the operator set MUST NOT alter the signature
+    /// or semantics of the operator once published as STABLE.
+    /// This field MUST be present in this version of the IR.
+    #[prost(int64, optional, tag = "2")]
+    pub since_version: ::core::option::Option<i64>,
+    /// This field indicates whether the syntax, semantics, or presence
+    /// of this operator is in an experimental or stable stage. Once an
+    /// operator is published as STABLE, it's syntax and semantics MUST NOT
+    /// change in subsequent versions of the operator set.
+    /// When an operator is published as EXPERIMENTAL, the syntax and semantics
+    /// of the operator MAY change across operator set versions.
+    /// Operators "become" stable by deprecating the experimental version and
+    /// introducing a new stable operator with the same op_type.
+    #[prost(enumeration = "OperatorStatus", optional, tag = "3")]
+    pub status: ::core::option::Option<i32>,
+    // Eventually we will declare the signature of the operator here
+    /// A human-readable documentation for this operator. Markdown is allowed.
+    #[prost(string, optional, tag = "10")]
+    pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// An OperatorSetProto represents an immutable set of immutable operator
+/// specifications.
+///
+/// The domain of the set (OperatorSetProto.domain) is a reverse-DNS name
+/// that disambiguates operator sets defined by independent entities.
+///
+/// The version of the set (opset_version) is a monotonically increasing
+/// integer that indicates changes to the membership of the operator set.
+///
+///
+/// Operator sets are uniquely identified by a two part identifier (domain, opset_version)
+///
+/// Like ModelProto, OperatorSetProto is intended as a top-level file/wire format,
+/// and thus has the standard format headers in addition to the operator set information.
+///
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OperatorSetProto {
+    /// All OperatorSetProtos start with a distingushed byte sequence to disambiguate
+    /// protobuf files containing OperatorSets from other content.
+    /// This field MUST be "ONNXOPSET"
+    /// This field MUST be present in this version of the IR
+    #[prost(string, optional, tag = "1")]
+    pub magic: ::core::option::Option<::prost::alloc::string::String>,
+    /// All OperatorSetProtos indicate the version of the IR syntax and semantics
+    /// they adhere to. It is always IR_VERSION.
+    /// This field MUST be present in this version of the IR
+    #[prost(int64, optional, tag = "2")]
+    pub ir_version: ::core::option::Option<i64>,
+    /// The prerelease component of the SemVer of the IR.
+    /// This field MAY be absent in this version of the IR
+    #[prost(string, optional, tag = "3")]
+    pub ir_version_prerelease: ::core::option::Option<::prost::alloc::string::String>,
+    /// The build metadata component of the SemVer of the IR.
+    /// This field MAY be absent in this version of the IR
+    #[prost(string, optional, tag = "7")]
+    pub ir_build_metadata: ::core::option::Option<::prost::alloc::string::String>,
+    /// Domain name of the operator set, in reverse DNS form (e.g., com.acme.dnnops).
+    #[prost(string, optional, tag = "4")]
+    pub domain: ::core::option::Option<::prost::alloc::string::String>,
+    /// The version of the set of operators. This is a simple int value
+    /// that is monotonically increasing as new versions of the operator set
+    /// are published. All operators in this set MUST have since_version
+    /// <= opset_version.
+    #[prost(int64, optional, tag = "5")]
+    pub opset_version: ::core::option::Option<i64>,
+    /// A human-readable documentation for this set of operators. Markdown is allowed.
+    #[prost(string, optional, tag = "6")]
+    pub doc_string: ::core::option::Option<::prost::alloc::string::String>,
+    /// The operators specified by this operator set.
+    /// The (name, version) MUST be unique across all OperatorProtos in operator
+    #[prost(message, repeated, tag = "8")]
+    pub operator: ::prost::alloc::vec::Vec<OperatorProto>,
+    /// The functions specified by this operator set.
+    /// The (name, version) MUST be unique across all OperatorProtos/FunctionProtos in operator/functions
+    #[prost(message, repeated, tag = "9")]
+    pub functions: ::prost::alloc::vec::Vec<FunctionProto>,
+}
 // @@protoc_insertion_point(module)

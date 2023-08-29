@@ -2,6 +2,22 @@ use ndarray::{Array1, ArrayD, IxDyn};
 
 use super::OperationError;
 
+use crate::tensor::TensorData;
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct ConvInputs {
+    pub weights: TensorData,
+    pub bias: Option<TensorData>,
+}
+
+impl ConvInputs {
+    pub fn new(weights: TensorData, bias: Option<TensorData>) -> Self {
+        Self { weights, bias }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ConvAttributes {
     // assuming 4D tensors
     dilations: [usize; 2],
@@ -148,6 +164,7 @@ impl Default for ConvAttributes {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct MaxPoolAttributes {
     kernel_shape: [usize; 2],
     pads: [usize; 4],
