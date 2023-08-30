@@ -27,12 +27,13 @@ fn run_with_cat_image(model_name: &str) -> ndarray::Array1<f32> {
     let model_proto = read_model_proto(format!("tests/models/{}.onnx", model_name).as_str());
     let config = Config { num_threads: 1 };
     let service = Service::new(model_proto, config);
-    let input_parameters = vec![];
+    let input_parameters = vec![("N".to_string(), 1)];
     let result = service
         .run(preprocessed_image.into_dyn(), input_parameters)
         .unwrap();
-    let TensorData::Float(result) = result else {panic!("Invalid result type")};
-    let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
+    let TensorData::Float(result) = result else {
+        panic!("Invalid result type")
+    };
     postprocessing(result)
 }
 

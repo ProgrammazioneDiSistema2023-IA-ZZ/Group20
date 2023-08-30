@@ -519,13 +519,7 @@ mod tests {
         let TensorData::Float(result) = result else {
             panic!("Invalid result type")
         };
-        let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
         let result = postprocessing(result);
-
-        //println!("Top 5 predictions:");
-        //for (i, (class, prob)) in  postprocessing_top_k(result, 5).iter().enumerate() {
-        //    println!("{}. class: {}, probability: {}", i + 1, class, prob);
-        //}
 
         let result = postprocessing_top_k(result, 1);
         let [top_result, ..] = result.as_slice() else {

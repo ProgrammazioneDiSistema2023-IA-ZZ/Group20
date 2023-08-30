@@ -34,7 +34,8 @@ pub fn preprocessing(image: image::DynamicImage) -> ndarray::Array4<f32> {
 }
 
 // Post processing for the ImageNet dataset
-pub fn postprocessing(tensor: ndarray::Array2<f32>) -> ndarray::Array1<f32> {
+pub fn postprocessing(tensor: ndarray::ArrayD<f32>) -> ndarray::Array1<f32> {
+    let tensor = tensor.into_dimensionality::<ndarray::Ix2>().unwrap();
     // softmax on the last axis of the tensor
     let tensor = tensor.mapv(|x| x.exp());
     let tensor = tensor.clone()
