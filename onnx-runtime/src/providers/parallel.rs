@@ -1,4 +1,4 @@
-use ndarray::parallel::prelude::*;
+use rayon::prelude::*;
 use ndarray::{Array1, ArrayD, Ix0, Ix2, IxDyn};
 use rayon::ThreadPool;
 // use rayon::prelude::*;
