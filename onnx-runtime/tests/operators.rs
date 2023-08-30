@@ -380,6 +380,30 @@ fn test_batchnorm_normal() {
 }
 
 #[test]
+fn test_batchnorm_big() {
+    let shape_x = [1, 256, 224, 224];
+    let shape_mean = [256];
+    let shape_b = [256];
+    let shape_scale = [256];
+    let shape_var = [256];
+    let shape_y = [1, 256, 224, 224];
+
+    let x: ArrayD<f32> = load("tests/tensors/bn/big/x.npy", &shape_x);
+    let mean: ArrayD<f32> = load("tests/tensors/bn/big/mean.npy", &shape_mean);
+    let b: ArrayD<f32> = load("tests/tensors/bn/big/b.npy", &shape_b);
+    let scale: ArrayD<f32> = load("tests/tensors/bn/big/scale.npy", &shape_scale);
+    let var: ArrayD<f32> = load("tests/tensors/bn/big/var.npy", &shape_var);
+    let y: ArrayD<f32> = load("tests/tensors/bn/big/y.npy", &shape_y);
+    let attrs = BatchNormAttributes::new(1e-5, 0.9, 1);
+
+    let my_y = NaiveProvider::batch_norm(&THREAD_POOL_1, x, scale, b, mean, var, attrs).unwrap();
+
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
 fn test_relu() {
     let shape_x = [4, 4, 5, 5];
     let shape_y = [4, 4, 5, 5];
