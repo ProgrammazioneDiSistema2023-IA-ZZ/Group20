@@ -39,7 +39,7 @@ fn batchnorm_big() {
     let y: ArrayD<f32> = load("tests/tensors/bn/big/y.npy", &shape_y);
     let attrs = BatchNormAttributes::new(1e-5, 0.9, 1);
 
-    let my_y = NaiveProvider::batch_norm(&THREAD_POOL_4, x, scale, b, mean, var, attrs).unwrap();
+    let my_y = ParNaiveProvider::batch_norm(&THREAD_POOL_4, x, scale, b, mean, var, attrs).unwrap();
 
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
