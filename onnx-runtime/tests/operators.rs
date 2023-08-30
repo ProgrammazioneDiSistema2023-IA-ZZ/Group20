@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use ndarray::{arr1, arr2, ArrayD, Ix1, IxDyn};
 use npy::NpyData;
 use onnx_runtime::operators::*;
-use onnx_runtime::providers::{NaiveProvider, ParProvider, Provider};
+use onnx_runtime::providers::{NaiveProvider, ParNaiveProvider, Provider};
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::fs::File;
 use std::io::Read;
@@ -415,7 +415,7 @@ fn test_par_max_pool() {
     let x: ArrayD<f32> = load("tests/tensors/maxpool/x.npy", &shape_x);
     let y: ArrayD<f32> = load("tests/tensors/maxpool/y.npy", &shape_y);
     let attrs = MaxPoolAttributes::new([3, 3], [1, 1, 1, 1], [2, 2]);
-    let my_y = ParProvider::max_pool(&THREAD_POOL_1, x, attrs).unwrap();
+    let my_y = ParNaiveProvider::max_pool(&THREAD_POOL_1, x, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
@@ -438,7 +438,7 @@ fn test_par_convolution_big() {
         .unwrap();
     let y = load("tests/tensors/convolution/big/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = ParProvider::conv(&THREAD_POOL_4, x, w, Some(b), attrs).unwrap();
+    let my_y = ParNaiveProvider::conv(&THREAD_POOL_4, x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     //println!("avg error = {}", err);
     assert!(err < 1e-4);

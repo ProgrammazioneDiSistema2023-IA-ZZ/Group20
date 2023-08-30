@@ -435,7 +435,7 @@ pub struct Config {
 
 #[cfg(test)]
 mod tests {
-    use crate::providers::ParProvider;
+    use crate::providers::ParNaiveProvider;
     use crate::tensor::{Tensor, TensorData};
     use image::codecs::jpeg::JpegEncoder;
     use prost::Message;
@@ -531,7 +531,7 @@ mod tests {
         let input_parameters = vec![(String::from("N"), 1_usize)];
 
         let result = service
-            .run_with_provider::<ParProvider>(preprocessed_image.into_dyn(), input_parameters)
+            .run_with_provider::<ParNaiveProvider>(preprocessed_image.into_dyn(), input_parameters)
             .unwrap();
         let TensorData::Float(result) = result else {
             panic!("Invalid result type")

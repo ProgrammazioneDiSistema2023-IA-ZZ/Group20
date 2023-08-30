@@ -13,10 +13,10 @@ use crate::{
     tensor::TypeToTensorDataType,
 };
 
-use super::{OperationError, Provider};
+use super::{OperationError, Provider, NaiveProvider};
 
-pub struct ParProvider;
-impl Provider for ParProvider {
+pub struct ParNaiveProvider;
+impl Provider for ParNaiveProvider {
     fn name(&self) -> &str {
         "Naive"
     }
@@ -168,6 +168,9 @@ impl Provider for ParProvider {
         c: ArrayD<f32>,
         attrs: GemmAttributes,
     ) -> Result<ArrayD<f32>, OperationError> {
+        if thread_pool.current_num_threads() == 1 {
+            return NaiveProvider::gemm(thread_pool, a, b, c, attrs);
+        }
         let GemmAttributes {
             alpha,
             beta,
@@ -238,6 +241,9 @@ impl Provider for ParProvider {
         var: ArrayD<f32>,
         attrs: BatchNormAttributes,
     ) -> Result<ArrayD<f32>, OperationError> {
+        if thread_pool.current_num_threads() == 1 {
+            return NaiveProvider::batch_norm(thread_pool, x, scale, b, mean, var, attrs);
+        }
         // checks
         let dims = vec![
             (1, scale.ndim()),
@@ -293,6 +299,9 @@ impl Provider for ParProvider {
         x: ArrayD<f32>,
         attrs: MaxPoolAttributes,
     ) -> Result<ArrayD<f32>, OperationError> {
+        if thread_pool.current_num_threads() == 1 {
+            return NaiveProvider::max_pool(thread_pool, x, attrs);
+        }
         // checks
         let [batch_size, in_chans, height, width] = *x.shape() else {
             return Err(OperationError::WrongDim(4, x.shape().len()));
@@ -358,6 +367,9 @@ impl Provider for ParProvider {
         bias: Option<Array1<f32>>,
         attrs: ConvAttributes,
     ) -> Result<ArrayD<f32>, OperationError> {
+        if thread_pool.current_num_threads() == 1 {
+            return NaiveProvider::conv(thread_pool, x, weights, bias, attrs);
+        }
         // checks
         let [batch_size, in_chans, height, width] = *x.shape() else {
             return Err(OperationError::WrongDim(4, x.shape().len()));
