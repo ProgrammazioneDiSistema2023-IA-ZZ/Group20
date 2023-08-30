@@ -428,7 +428,7 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Config {
     pub num_threads: usize,
 }
