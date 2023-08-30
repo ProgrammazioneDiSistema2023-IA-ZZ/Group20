@@ -1,6 +1,7 @@
 use criterion::{black_box, criterion_group, Criterion};
 use onnx_runtime::onnx_format::ModelProto;
 use onnx_runtime::prepare::{postprocessing, preprocessing};
+use onnx_runtime::providers::ParProvider;
 use onnx_runtime::service::Config;
 use onnx_runtime::service::Service;
 use onnx_runtime::tensor::TensorData;
@@ -55,7 +56,7 @@ fn run_with_cat_image(model_name: &str, num_threads: usize) -> ndarray::Array1<f
     let service = Service::new(model_proto, config);
     let input_parameters = vec![("N".to_string(), 1_usize)];
     let result = service
-        .run(preprocessed_image.into_dyn(), input_parameters)
+        .run_with_provider::<ParProvider>(preprocessed_image.into_dyn(), input_parameters)
         .unwrap();
     let TensorData::Float(result) = result else {panic!("Invalid result type")};
     let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
