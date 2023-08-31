@@ -14,7 +14,14 @@ pub fn load_output(path: &str) -> Array2<f32> {
 }
 
 fn tensor_proto_to_arr4(tensor: TensorProto) -> Array4<f32> {
-    let [batch_size, chans, height, width] = *(tensor.dims.iter().map(|&v| v as usize).collect::<Vec<usize>>()) else {todo!("Unexpected format")};
+    let [batch_size, chans, height, width] = *(tensor
+        .dims
+        .iter()
+        .map(|&v| v as usize)
+        .collect::<Vec<usize>>())
+    else {
+        todo!("Unexpected format")
+    };
     // println!("{:?}", tensor);
     let raw_data = tensor
         .raw_data
@@ -30,7 +37,14 @@ fn tensor_proto_to_arr4(tensor: TensorProto) -> Array4<f32> {
 }
 
 fn tensor_proto_to_arr2(tensor: TensorProto) -> Array2<f32> {
-    let [batch_size, outputs] = *(tensor.dims.iter().map(|&v| v as usize).collect::<Vec<usize>>()) else {todo!("Unexpected format")};
+    let [batch_size, outputs] = *(tensor
+        .dims
+        .iter()
+        .map(|&v| v as usize)
+        .collect::<Vec<usize>>())
+    else {
+        todo!("Unexpected format")
+    };
     // println!("{:?}", tensor);
     let raw_data = tensor
         .raw_data

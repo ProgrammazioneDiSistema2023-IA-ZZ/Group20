@@ -361,7 +361,8 @@ where
                 ));
             };
 
-            let result = ChosenProvider::gemm(thread_pool, matrix_a, matrix_b, matrix_c, attrs.clone())?;
+            let result =
+                ChosenProvider::gemm(thread_pool, matrix_a, matrix_b, matrix_c, attrs.clone())?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }
@@ -409,8 +410,15 @@ where
                 ));
             };
 
-            let result =
-                ChosenProvider::batch_norm(thread_pool, operand, scale, bias, mean, var, attrs.clone())?;
+            let result = ChosenProvider::batch_norm(
+                thread_pool,
+                operand,
+                scale,
+                bias,
+                mean,
+                var,
+                attrs.clone(),
+            )?;
             let tensor = TensorData::Float(result);
             Ok(tensor)
         }

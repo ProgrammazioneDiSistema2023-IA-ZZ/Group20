@@ -1,4 +1,7 @@
-use benchmarks::{bench_convolution::convolutions, bench_runtime::runtime, bench_bn::batchnorms, bench_gemm::gemms, bench_maxpool::maxpools};
+use benchmarks::{
+    bench_bn::batchnorms, bench_convolution::convolutions, bench_gemm::gemms,
+    bench_maxpool::maxpools, bench_runtime::runtime,
+};
 use criterion::criterion_main;
 mod benchmarks;
 

@@ -58,7 +58,9 @@ fn run_with_cat_image(model_name: &str, num_threads: usize) -> ndarray::Array1<f
     let result = service
         .run_with_provider::<ParNaiveProvider>(preprocessed_image.into_dyn(), input_parameters)
         .unwrap();
-    let TensorData::Float(result) = result else {panic!("Invalid result type")};
+    let TensorData::Float(result) = result else {
+        panic!("Invalid result type")
+    };
     let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
     postprocessing(result)
 }
@@ -71,4 +73,9 @@ fn read_model_proto(path: &str) -> ModelProto {
     ModelProto::decode(buffer.as_slice()).unwrap()
 }
 
-criterion_group!(runtime, bench_with_cat_image, bench_with_cat_image_2, bench_with_cat_image_4);
+criterion_group!(
+    runtime,
+    bench_with_cat_image,
+    bench_with_cat_image_2,
+    bench_with_cat_image_4
+);

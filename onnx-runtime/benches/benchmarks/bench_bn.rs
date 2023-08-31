@@ -4,7 +4,7 @@ use ndarray::{ArrayD, IxDyn};
 use npy::NpyData;
 use onnx_runtime::{
     operators::*,
-    providers::{Provider, ParNaiveProvider},
+    providers::{ParNaiveProvider, Provider},
 };
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::{fs::File, io::Read, ops::Sub, time::Duration};
