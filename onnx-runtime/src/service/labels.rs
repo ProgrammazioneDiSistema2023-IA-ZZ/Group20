@@ -1,4 +1,4 @@
-[
+pub const IMAGENET_LABELS: [&str; 1000] = [
 "tench, Tinca tinca",
 "goldfish, Carassius auratus",
 "great white shark, white shark, man-eater, man-eating shark, Carcharodon carcharias",
@@ -999,4 +999,4 @@
 "bolete",
 "ear, spike, capitulum",
 "toilet tissue, toilet paper, bathroom tissue"
-]
+];
