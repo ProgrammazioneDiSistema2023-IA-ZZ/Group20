@@ -4,14 +4,14 @@ use ndarray::{ArrayD, IxDyn};
 use npy::NpyData;
 use onnx_runtime::{
     operators::*,
-    providers::{Provider, ParNaiveProvider, NaiveProvider},
+    providers::{Provider, ParNaiveProvider},
 };
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::{fs::File, io::Read, ops::Sub, time::Duration};
 
 lazy_static! {
     static ref THREAD_POOL_4: ThreadPool = ThreadPoolBuilder::new()
-        .num_threads(8)
+        .num_threads(4)
         .build()
         .expect("Unable to create ThreadPool");
 }

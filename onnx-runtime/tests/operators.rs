@@ -333,6 +333,24 @@ fn test_gemm() {
 }
 
 #[test]
+fn test_gemm_big() {
+    let a_shape = [128, 256];
+    let b_shape = [256, 512];
+    let c_shape = [512];
+    let y_shape = [128, 512];
+    let a = load("tests/tensors/gemm/big/a.npy", &a_shape);
+    let b = load("tests/tensors/gemm/big/b.npy", &b_shape);
+    let c = load("tests/tensors/gemm/big/c.npy", &c_shape);
+    let y = load("tests/tensors/gemm/big/y.npy", &y_shape);
+
+    let attrs = GemmAttributes::new(1.8, 0.2, 0, 0);
+    let my_y = NaiveProvider::gemm(&THREAD_POOL_1, a, b, c, attrs).unwrap();
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
 fn test_batchnorm_small() {
     let shape_x = [2, 2, 3, 3];
     let shape_mean = [2];
@@ -419,8 +437,21 @@ fn test_relu() {
 fn test_max_pool() {
     let shape_x = [8, 4, 9, 9];
     let shape_y = [8, 4, 5, 5];
-    let x: ArrayD<f32> = load("tests/tensors/maxpool/x.npy", &shape_x);
-    let y: ArrayD<f32> = load("tests/tensors/maxpool/y.npy", &shape_y);
+    let x: ArrayD<f32> = load("tests/tensors/maxpool/small/x.npy", &shape_x);
+    let y: ArrayD<f32> = load("tests/tensors/maxpool/small/y.npy", &shape_y);
+    let attrs = MaxPoolAttributes::new([3, 3], [1, 1, 1, 1], [2, 2]);
+    let my_y = NaiveProvider::max_pool(&THREAD_POOL_1, x, attrs).unwrap();
+    let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
+    // println!("avg error = {}", err);
+    assert!(err < 1e-5);
+}
+
+#[test]
+fn test_max_pool_big() {
+    let shape_x = [1, 256, 224, 224];
+    let shape_y = [1, 256, 112, 112];
+    let x: ArrayD<f32> = load("tests/tensors/maxpool/big/x.npy", &shape_x);
+    let y: ArrayD<f32> = load("tests/tensors/maxpool/big/y.npy", &shape_y);
     let attrs = MaxPoolAttributes::new([3, 3], [1, 1, 1, 1], [2, 2]);
     let my_y = NaiveProvider::max_pool(&THREAD_POOL_1, x, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
@@ -436,10 +467,10 @@ fn test_par_max_pool() {
         .unwrap();
     let shape_x = [8, 4, 9, 9];
     let shape_y = [8, 4, 5, 5];
-    let x: ArrayD<f32> = load("tests/tensors/maxpool/x.npy", &shape_x);
-    let y: ArrayD<f32> = load("tests/tensors/maxpool/y.npy", &shape_y);
+    let x: ArrayD<f32> = load("tests/tensors/maxpool/small/x.npy", &shape_x);
+    let y: ArrayD<f32> = load("tests/tensors/maxpool/small/y.npy", &shape_y);
     let attrs = MaxPoolAttributes::new([3, 3], [1, 1, 1, 1], [2, 2]);
-    let my_y = ParNaiveProvider::max_pool(&THREAD_POOL_1, x, attrs).unwrap();
+    let my_y = ParNaiveProvider::max_pool(&THREAD_POOL_4, x, attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     // println!("avg error = {}", err);
     assert!(err < 1e-5);
