@@ -1,8 +1,7 @@
+use ndarray::Axis;
+use ndarray::{Array1, ArrayD, Ix2, IxDyn};
 use rayon::prelude::*;
-use ndarray::{Array1, ArrayD, Ix0, Ix2, IxDyn};
 use rayon::ThreadPool;
-// use rayon::prelude::*;
-use std::ops::Add;
 use std::sync::Mutex;
 
 use crate::{
@@ -13,12 +12,12 @@ use crate::{
     tensor::TypeToTensorDataType,
 };
 
-use super::{OperationError, Provider, NaiveProvider};
+use super::{NaiveProvider, OperationError, Provider};
 
 pub struct ParNaiveProvider;
 impl Provider for ParNaiveProvider {
     fn name(&self) -> &str {
-        "Naive"
+        "ParNaive"
     }
 
     fn version(&self) -> u64 {
@@ -30,34 +29,19 @@ impl Provider for ParNaiveProvider {
         x: ArrayD<f32>,
         y: ArrayD<f32>,
     ) -> Result<ArrayD<f32>, OperationError> {
-        if x.shape() == y.shape() {
-            Ok(x.add(y))
-        } else {
-            Err(OperationError::UnexpectedShape(
-                format!("{:?}", x.shape()),
-                format!("{:?}", y.shape()),
-            ))
-        }
+        NaiveProvider::add(_thread_pool, x, y)
     }
 
     fn relu(_thread_pool: &ThreadPool, x: ArrayD<f32>) -> ArrayD<f32> {
-        x.mapv(|v| v.max(0.0))
+        NaiveProvider::relu(_thread_pool, x)
     }
 
     fn clip(_thread_pool: &ThreadPool, x: ArrayD<f32>, attrs: ClipAttributes) -> ArrayD<f32> {
-        let ClipAttributes {
-            min: min_v,
-            max: max_v,
-        } = attrs;
-        x.mapv(|x| x.max(min_v).min(max_v))
+        NaiveProvider::clip(_thread_pool, x, attrs)
     }
 
     fn shape(_thread_pool: &ThreadPool, x: ArrayD<f32>) -> ArrayD<i64> {
-        ArrayD::<i64>::from_shape_vec(
-            IxDyn(&[x.ndim()]),
-            x.shape().iter().map(|e| *e as i64).collect(),
-        )
-        .unwrap()
+        NaiveProvider::shape(_thread_pool, x)
     }
 
     fn gather(
@@ -66,16 +50,7 @@ impl Provider for ParNaiveProvider {
         index: usize,
         attrs: GatherAttributes,
     ) -> Result<ArrayD<usize>, OperationError> {
-        assert!(attrs.axes == 0); // this is the only use case we are interested in
-        if attrs.axes != 0 {
-            Err(OperationError::UnsupportedOperator)
-        } else if x.ndim() != 1 {
-            Err(OperationError::WrongDim(1, x.ndim()))
-        } else if index >= x.shape()[0] {
-            Err(OperationError::InvalidOperator)
-        } else {
-            Ok(ArrayD::<usize>::from_shape_fn(IxDyn(&[]), |_| x[[index]]))
-        }
+        NaiveProvider::gather(_thread_pool, x, index, attrs)
     }
 
     fn unsqueeze(
@@ -83,17 +58,7 @@ impl Provider for ParNaiveProvider {
         x: ArrayD<usize>,
         attrs: UnsqueezeAttributes,
     ) -> Result<ArrayD<usize>, OperationError> {
-        if attrs.axes != 0 {
-            Err(OperationError::UnsupportedOperator)
-        } else if x.ndim() != 0 {
-            Err(OperationError::WrongDim(0, x.ndim()))
-        } else {
-            Ok(ArrayD::<usize>::from_shape_vec(
-                IxDyn(&[1]),
-                vec![x.into_dimensionality::<Ix0>().unwrap().into_scalar()],
-            )
-            .expect("Unsqueeze failed"))
-        }
+        NaiveProvider::unsqueeze(_thread_pool, x, attrs)
     }
     fn concat<T>(
         _thread_pool: &ThreadPool,
@@ -103,33 +68,13 @@ impl Provider for ParNaiveProvider {
     where
         T: TypeToTensorDataType + Copy,
     {
-        if attrs.axes != 0 {
-            Err(OperationError::UnsupportedOperator)
-        } else if x.is_empty() {
-            Err(OperationError::InvalidOperator)
-        } else {
-            Ok(ArrayD::from_shape_fn(IxDyn(&[x.len()]), |i| x[i[0]][[0]]))
-        }
+        NaiveProvider::concat(_thread_pool, x, attrs)
     }
     fn global_average_pool(
         _thread_pool: &ThreadPool,
         x: ArrayD<f32>,
     ) -> Result<ArrayD<f32>, OperationError> {
-        let [batch_size, channels, height, width] = *x.shape() else {
-            return Err(OperationError::WrongDim(4, x.ndim()));
-        };
-        Ok(ArrayD::from_shape_fn(
-            IxDyn(&[batch_size, channels, 1, 1]),
-            |idx| {
-                let mut accumulator = 0.0;
-                for i in 0..height {
-                    for j in 0..width {
-                        accumulator += x[[idx[0], idx[1], i, j]];
-                    }
-                }
-                accumulator / (height * width) as f32
-            },
-        ))
+        NaiveProvider::global_average_pool(_thread_pool, x)
     }
 
     fn reshape(
@@ -137,28 +82,7 @@ impl Provider for ParNaiveProvider {
         x: ArrayD<f32>,
         shape: ArrayD<i64>,
     ) -> Result<ArrayD<f32>, OperationError> {
-        if shape.len() != 2 {
-            return Err(OperationError::WrongShape(
-                "[2]".to_string(),
-                format!("[{}]", shape.len()),
-            ));
-        }
-        let mut myshape: [usize; 2] = [0, 0];
-        let xshape = x.shape();
-        for i in 0..shape.len() {
-            if shape[i] == 0 {
-                myshape[i] = xshape[i];
-            } else if shape[i] == -1 {
-                myshape[i] = xshape[i..].iter().product::<usize>();
-            } else {
-                myshape[i] = shape[i] as usize;
-            }
-        }
-        if xshape.iter().product::<usize>() != myshape.iter().product::<usize>() {
-            Err(OperationError::InvalidOperator)
-        } else {
-            Ok(x.into_shape(IxDyn(&myshape)).unwrap())
-        }
+        NaiveProvider::reshape(_thread_pool, x, shape)
     }
 
     fn gemm(
@@ -241,57 +165,7 @@ impl Provider for ParNaiveProvider {
         var: ArrayD<f32>,
         attrs: BatchNormAttributes,
     ) -> Result<ArrayD<f32>, OperationError> {
-        if thread_pool.current_num_threads() == 1 {
-            return NaiveProvider::batch_norm(thread_pool, x, scale, b, mean, var, attrs);
-        }
-        // checks
-        let dims = vec![
-            (1, scale.ndim()),
-            (1, b.ndim()),
-            (1, mean.ndim()),
-            (1, var.ndim()),
-            (4, x.ndim()),
-        ];
-        for dim in dims {
-            if dim.0 != dim.1 {
-                return Err(OperationError::WrongDim(dim.0, dim.1));
-            }
-        }
-        let dims = vec![
-            scale.shape()[0],
-            b.shape()[0],
-            mean.shape()[0],
-            var.shape()[0],
-        ];
-        for dim in dims {
-            if x.shape()[1] != dim {
-                return Err(OperationError::WrongShape(
-                    format!("[{}]", x.shape()[1]),
-                    format!("[{}]", dim),
-                ));
-            }
-        }
-
-        let BatchNormAttributes {
-            epsilon,
-            momentum: _,
-            spatial,
-        } = attrs;
-        assert!(spatial != 0); // this is the only use case we are interested in
-        let mean = mean.into_shape(IxDyn(&[1, x.shape()[1], 1, 1])).unwrap();
-        let b = b.into_shape(IxDyn(&[1, x.shape()[1], 1, 1])).unwrap();
-        let scale = scale.into_shape(IxDyn(&[1, x.shape()[1], 1, 1])).unwrap();
-        let var = var.into_shape(IxDyn(&[1, x.shape()[1], 1, 1])).unwrap();
-
-        let mut term1 = None;
-        let mut term2 = None;
-        thread_pool.scope(|s| {
-            s.spawn(|_| term1 = Some(x - mean));
-            s.spawn(|_| term2 = Some((var + epsilon).mapv(|v| v.sqrt())));
-        });
-
-        let x_normalized = term1.expect("term1 unavailable") / term2.expect("term2 unavailable");
-        Ok(scale * x_normalized + b)
+        NaiveProvider::batch_norm(thread_pool, x, scale, b, mean, var, attrs)
     }
 
     fn max_pool(
@@ -313,7 +187,7 @@ impl Provider for ParNaiveProvider {
         } = attrs;
         let out_height = 1 + ((height + pad_hs + pad_he) - kern_h) / stride_h;
         let out_width = 1 + ((width + pad_ws + pad_we) - kern_w) / stride_w;
-        let out_shape = [batch_size, in_chans, out_height, out_width];
+        // let out_shape = [batch_size, in_chans, out_height, out_width];
 
         // declaration of tensor bounds considering padding
         let tens_hs: i64 = 0i64 - (pad_hs as i64);
@@ -322,42 +196,64 @@ impl Provider for ParNaiveProvider {
         let tens_we: i64 = ((width + pad_we) - kern_w + 1) as i64;
 
         // result tensor
-        let output: Mutex<ArrayD<f32>> =
-            Mutex::new(ArrayD::<f32>::from_elem(IxDyn(&out_shape), 0.0));
+        let output = thread_pool.install(|| {
+            (0..batch_size)
+                .into_iter()
+                .map(|batch| {
+                    (0..in_chans)
+                        .into_par_iter()
+                        .map(|channel| {
+                            let mut subview = ArrayD::zeros(IxDyn(&[1, out_height, out_width]));
+                            for ext_row in (tens_hs..tens_he).step_by(stride_h) {
+                                for ext_col in (tens_ws..tens_we).step_by(stride_w) {
+                                    // declaration of kernel window bounds
+                                    let win_sh = ext_row;
+                                    let win_sw = ext_col;
+                                    let win_eh = ext_row + kern_h as i64; // actual kernel size takes into account the dilation
+                                    let win_ew = ext_col + kern_w as i64;
 
-        thread_pool.install(|| {
-            for batch in 0..batch_size {
-                (0..in_chans).into_par_iter().for_each(|channel| {
-                    // iterate over the input tensor with the specified stride
-                    for ext_row in (tens_hs..tens_he).step_by(stride_h) {
-                        for ext_col in (tens_ws..tens_we).step_by(stride_w) {
-                            // declaration of kernel window bounds
-                            let win_sh = ext_row;
-                            let win_sw = ext_col;
-                            let win_eh = ext_row + kern_h as i64; // actual kernel size takes into account the dilation
-                            let win_ew = ext_col + kern_w as i64;
-
-                            let mut result: f32 = f32::MIN;
-                            // iterate over the window defined by the kernel
-                            for input_row in win_sh.max(0)..win_eh.min(height as i64) {
-                                for input_col in win_sw.max(0)..win_ew.min(width as i64) {
-                                    result = result.max(
-                                        x[[batch, channel, input_row as usize, input_col as usize]],
-                                    )
+                                    let mut result: f32 = f32::MIN;
+                                    // iterate over the window defined by the kernel
+                                    for input_row in win_sh.max(0)..win_eh.min(height as i64) {
+                                        for input_col in win_sw.max(0)..win_ew.min(width as i64) {
+                                            result = result.max(
+                                                x[[
+                                                    batch,
+                                                    channel,
+                                                    input_row as usize,
+                                                    input_col as usize,
+                                                ]],
+                                            )
+                                        }
+                                    }
+                                    // compute output tensor indexes and update the corresponding value
+                                    let out_row = (ext_row + pad_hs as i64) as usize / stride_h;
+                                    let out_col = (ext_col + pad_ws as i64) as usize / stride_w;
+                                    subview[[0, out_row, out_col]] = result;
                                 }
                             }
-                            // compute output tensor indexes and update the corresponding value
-                            let out_row = (ext_row + pad_hs as i64) as usize / stride_h;
-                            let out_col = (ext_col + pad_ws as i64) as usize / stride_w;
-                            let mut guard = output.lock().expect("Failed to obtain lock");
-                            guard[[batch, channel, out_row, out_col]] = result;
-                        }
-                    }
-                });
-            }
+                            subview
+                        })
+                        .collect::<Vec<_>>()
+                        .iter()
+                        .fold(
+                            ArrayD::<f32>::zeros(IxDyn(&[0, out_height, out_width])),
+                            |mut acc, x| {
+                                acc.append(Axis(0), x.view()).expect("Cannot append 1");
+                                acc
+                            },
+                        )
+                        .insert_axis(Axis(0))
+                })
+                .fold(
+                    ArrayD::<f32>::zeros(IxDyn(&[0, in_chans, out_height, out_width])),
+                    |mut acc, x| {
+                        acc.append(Axis(0), x.view()).expect("Cannot append 2");
+                        acc
+                    },
+                )
         });
-        let result = output.into_inner().expect("Failed to obtain lock");
-        Ok(result)
+        Ok(output)
     }
 
     fn conv(
