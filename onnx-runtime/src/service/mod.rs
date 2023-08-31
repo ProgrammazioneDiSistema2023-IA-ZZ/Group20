@@ -1,6 +1,10 @@
+mod labels;
+pub mod prepare;
+pub mod utility;
+
 use ndarray::{ArrayD, IxDyn};
 use petgraph::{algo::toposort, Direction};
-use std::{borrow::BorrowMut, ops::ControlFlow};
+use std::{borrow::BorrowMut, error::Error, ops::ControlFlow, path::PathBuf};
 use thiserror::Error;
 
 use crate::{
@@ -11,8 +15,12 @@ use crate::{
     tensor::{DynamicTensorData, GraphDimension, TensorData, TensorDataIntoDimensionality},
 };
 
+use self::prepare::postprocessing;
+
 #[derive(Error, Debug)]
 pub enum ServiceError {
+    #[error("The input is invalid: {0}")]
+    InvalidInput(Box<dyn Error>),
     #[error("The model could not be translated into an executable graph: {0}")]
     CouldNotTranslateModel(GraphError),
     #[error("An operation failed while inferring the model: {0}")]
@@ -21,11 +29,113 @@ pub enum ServiceError {
     InvalidModel(&'static str),
     #[error("The output node was not found")]
     OutputNodeNotFound,
+    #[error("The output shape {actual} is different than expected {expected}")]
+    InvalidOutputShape { expected: usize, actual: usize },
+    #[error("The output type {actual} is different than expected {expected}")]
+    UnexpectedOutputType { expected: String, actual: String },
 }
 
+#[derive(Clone, Debug)]
+pub struct ServiceBuilder {
+    model_path: PathBuf,
+    config: Config,
+}
 pub struct Service {
     model: ModelProto,
     config: Config,
+}
+
+#[derive(Clone, Debug)]
+pub struct Config {
+    pub num_threads: usize,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self { num_threads: 1 }
+    }
+}
+
+impl ServiceBuilder {
+    pub fn new(model_path: PathBuf) -> Self {
+        Self {
+            model_path,
+            config: Config::default(),
+        }
+    }
+
+    pub fn config(mut self, config: Config) -> Self {
+        self.config = config;
+        self
+    }
+
+    pub fn build(self) -> Result<Service, ServiceError> {
+        let model = utility::read_model_proto(self.model_path.as_path());
+        Ok(Service::new(model, self.config))
+    }
+}
+pub struct Prediction {
+    pub class: String,
+    pub probability: f32,
+}
+
+pub struct InferenceOutput {
+    batch_predictions: ndarray::Array2<f32>,
+}
+
+impl InferenceOutput {
+    pub fn new(output_tensor: ArrayD<f32>) -> Result<Self, ServiceError> {
+        if output_tensor.ndim() != 2 {
+            return Err(ServiceError::InvalidOutputShape {
+                expected: 2,
+                actual: output_tensor.ndim(),
+            });
+        }
+
+        let output_tensor = output_tensor.into_dimensionality::<ndarray::Ix2>().unwrap();
+        let batch_predictions = postprocessing(output_tensor);
+        Ok(Self { batch_predictions })
+    }
+
+    pub fn get_top_k_predictions(&self, k: usize) -> Vec<Vec<Prediction>> {
+        // for each row in the tensor, get the top k predictions
+        self.batch_predictions
+            .outer_iter()
+            .map(|row| self.get_batch_element_top_k_classes(row.to_owned(), k))
+            .collect()
+    }
+
+    pub fn get_top_k_class_names(&self, k: usize) -> Vec<String> {
+        let top_classes = self.get_top_k_predictions(k);
+
+        // for each batch element, get the most probable class
+        top_classes
+            .into_iter()
+            .map(|batch| batch[0].class.clone())
+            .collect::<Vec<String>>()
+    }
+
+    fn get_batch_element_top_k_classes(
+        &self,
+        tensor: ndarray::Array1<f32>,
+        k: usize,
+    ) -> Vec<Prediction> {
+        let mut top_k_classes = tensor
+            .iter()
+            .enumerate()
+            .map(|(i, x)| (i, x))
+            .collect::<Vec<_>>();
+        top_k_classes.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+        top_k_classes.truncate(k);
+
+        top_k_classes
+            .into_iter()
+            .map(|(i, x)| Prediction {
+                class: String::from(labels::IMAGENET_LABELS[i]),
+                probability: *x,
+            })
+            .collect()
+    }
 }
 
 impl Service {
@@ -33,7 +143,35 @@ impl Service {
         Self { model, config }
     }
 
-    /// Runs the service on the input data, using the input parameters and the default execution provider (naive).
+    /// Preprocesses multiple input data and runs the service on them, using the input parameters and the default execution provider.
+    pub fn prepare_and_run(
+        &self,
+        inputs: Vec<PathBuf>,
+        input_parameters: Vec<(String, usize)>,
+    ) -> Result<InferenceOutput, ServiceError> {
+        self.prepare_and_run_with_provider::<DefaultProvider>(inputs, input_parameters)
+    }
+
+    /// Preprocesses multiple input data and runs the service on them, using the input parameters and the given execution provider.
+    pub fn prepare_and_run_with_provider<P: Provider>(
+        &self,
+        inputs: Vec<PathBuf>,
+        input_parameters: Vec<(String, usize)>,
+    ) -> Result<InferenceOutput, ServiceError> {
+        let input_tensor = utility::read_and_prepare_images(inputs.as_slice())?.into_dyn();
+        let output_tensor = self.run_with_provider::<P>(input_tensor, input_parameters)?;
+        let TensorData::Float(output_tensor) = output_tensor else {
+            return Err(ServiceError::UnexpectedOutputType {
+                expected: String::from("Float"),
+                actual: output_tensor.dtype().to_string(),
+            });
+        };
+
+        let result = InferenceOutput::new(output_tensor)?;
+        Ok(result)
+    }
+
+    /// Runs the service on the input data, using the input parameters and the default execution provider.
     pub fn run(
         &self,
         input: ArrayD<f32>,
@@ -413,10 +551,6 @@ where
     }
 }
 
-pub struct Config {
-    pub num_threads: usize,
-}
-
 #[cfg(test)]
 mod tests {
     use crate::tensor::{Tensor, TensorData};
@@ -424,12 +558,12 @@ mod tests {
     use prost::Message;
 
     use crate::onnx_format::TensorProto;
-    use crate::prepare::{batch_preprocessing, postprocessing, postprocessing_top_k};
-    use crate::{
-        onnx_format::ModelProto,
-        service::{Config, Service},
-    };
+    use crate::service::{Config, Service};
+    use std::path::PathBuf;
     use std::{fs::File, io::Read};
+
+    use super::utility::read_model_proto;
+    use super::ServiceBuilder;
 
     #[test]
     fn run_mobilenet_with_testset() {
@@ -486,7 +620,7 @@ mod tests {
     }
 
     fn test_service(model_name: &str, testset_folder: &str) {
-        let parsed_model = read_model_proto(&format!("tests/models/{}.onnx", model_name));
+        let parsed_model = read_model_proto(format!("tests/models/{}.onnx", model_name));
 
         let config = Config { num_threads: 1 };
         let service = Service::new(parsed_model, config);
@@ -543,41 +677,21 @@ mod tests {
         let default_parameter = (String::from("N"), 1_usize);
         let (_, batch_size) = input_parameters.get(0).unwrap_or(&default_parameter);
 
-        let image = image::open(image_path).unwrap();
         // Use the same image for all the batch elements
-        let batch = vec![image; *batch_size];
-        let preprocessed_batch = batch_preprocessing(&batch).expect("Could not preprocess batch");
+        let batch = vec![PathBuf::from(image_path); *batch_size];
 
-        // save the preprocessed tensor as an image file
-        //preprocessed_image_to_file(&preprocessed_image, "tests/preprocessed_cat.jpg");
-
-        let model_proto = read_model_proto(&format!("tests/models/{}.onnx", model_name));
         let config = Config { num_threads: 1 };
-        let service = Service::new(model_proto, config);
+        let model_path = PathBuf::from(format!("tests/models/{}.onnx", model_name));
+        let service = ServiceBuilder::new(model_path)
+            .config(config)
+            .build()
+            .expect("Could not build service");
 
         let result = service
-            .run(preprocessed_batch.into_dyn(), input_parameters)
-            .unwrap();
-        let TensorData::Float(result) = result else {
-            panic!("Invalid result type")
-        };
-        let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
-        let result = postprocessing(result);
+            .prepare_and_run(batch, input_parameters)
+            .expect("Could not infer the model");
 
-        let result = postprocessing_top_k(result, 1);
-        // for each batch element, get the most probable class
-        result
-            .into_iter()
-            .map(|batch| batch[0].0.clone())
-            .collect::<Vec<String>>()
-    }
-
-    fn read_model_proto(path: &str) -> ModelProto {
-        let mut buffer = Vec::new();
-        let mut file = File::open(path).unwrap();
-        file.read_to_end(&mut buffer).unwrap();
-
-        ModelProto::decode(buffer.as_slice()).unwrap()
+        result.get_top_k_class_names(1)
     }
 
     fn read_testset(path: &str) -> Tensor {

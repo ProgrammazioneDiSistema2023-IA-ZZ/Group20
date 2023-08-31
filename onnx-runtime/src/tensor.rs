@@ -4,6 +4,8 @@
 //!
 //! The main struct is [`Tensor`], which contains the name of the tensor and its data.
 //! The data is stored in the [`TensorData`] enum, which contains the actual array with generic element data type.
+use std::fmt::Display;
+
 use ndarray::{ArrayBase, ArrayD, IxDyn, OwnedRepr};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
@@ -173,6 +175,27 @@ pub enum TensorDataType {
     /// Unsigned 64-bit int, equivalent to Rust's `u64`
     Uint64,
 }
+
+impl Display for TensorDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            TensorDataType::Float => "Float",
+            TensorDataType::Uint8 => "Uint8",
+            TensorDataType::Int8 => "Int8",
+            TensorDataType::Uint16 => "Uint16",
+            TensorDataType::Int16 => "Int16",
+            TensorDataType::Int32 => "Int32",
+            TensorDataType::Int64 => "Int64",
+            TensorDataType::String => "String",
+            TensorDataType::Double => "Double",
+            TensorDataType::Uint32 => "Uint32",
+            TensorDataType::Uint64 => "Uint64",
+        };
+
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum TensorData {
     Float(ArrayD<f32>),
@@ -190,7 +213,7 @@ pub enum TensorData {
 
 pub trait TensorDataIntoDimensionality<T>
 where
-    T: TypeToTensorDataType + Copy,
+    T: TypeToTensorDataType + Clone,
 {
     fn into_dimensionality<D>(self) -> ArrayBase<OwnedRepr<T>, D>
     where
@@ -199,7 +222,7 @@ where
 
 pub trait DynamicTensorData<T>
 where
-    T: TypeToTensorDataType + Copy,
+    T: TypeToTensorDataType + Clone,
 {
     fn new_dyn(data: ArrayD<T>) -> TensorData;
 }
@@ -207,7 +230,7 @@ where
 /// Trait used to map Rust types to ONNX types (for example `f32` is mapped to `Float`)
 pub trait TypeToTensorDataType {
     /// Return the ONNX type for a Rust type
-    fn tensor_data_type() -> TensorDataType;
+    fn tensor_data_type(&self) -> TensorDataType;
 }
 
 fn convert_proto_to_tensor_data(proto: TensorProto, dimensions: Vec<usize>) -> TensorData {
@@ -380,12 +403,24 @@ impl TensorData {
     pub fn shape(&self) -> &[usize] {
         dynamic_map!(self, |data| data.shape())
     }
+
+    pub fn dtype(&self) -> TensorDataType {
+        dynamic_map!(self, |data| data.tensor_data_type())
+    }
 }
 
 macro_rules! impl_type_trait {
     ($type_:ty, $variant:ident) => {
         impl TypeToTensorDataType for $type_ {
-            fn tensor_data_type() -> TensorDataType {
+            fn tensor_data_type(&self) -> TensorDataType {
+                TensorDataType::$variant
+            }
+        }
+
+        impl TypeToTensorDataType
+            for ArrayBase<OwnedRepr<$type_>, ndarray::Dim<ndarray::IxDynImpl>>
+        {
+            fn tensor_data_type(&self) -> TensorDataType {
                 TensorDataType::$variant
             }
         }
@@ -428,3 +463,4 @@ impl_type_trait!(i64, Int64);
 impl_type_trait!(f64, Double);
 impl_type_trait!(u32, Uint32);
 impl_type_trait!(u64, Uint64);
+impl_type_trait!(String, String);

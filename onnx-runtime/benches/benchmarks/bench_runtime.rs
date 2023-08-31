@@ -1,6 +1,7 @@
 use criterion::{black_box, criterion_group, Criterion};
 use onnx_runtime::onnx_format::ModelProto;
-use onnx_runtime::prepare::{postprocessing, preprocessing};
+use onnx_runtime::service::prepare::postprocessing;
+use onnx_runtime::service::prepare::preprocessing;
 use onnx_runtime::service::Config;
 use onnx_runtime::service::Service;
 use onnx_runtime::tensor::TensorData;

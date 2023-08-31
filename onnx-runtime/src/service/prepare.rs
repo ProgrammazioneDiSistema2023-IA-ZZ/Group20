@@ -1,10 +1,6 @@
 use image::GenericImageView;
 use ndarray::{Array4, ShapeError};
 
-type Prediction = (String, f32);
-
-const IMAGENET_LABELS: [&str; 1000] = include!("labels/imagenet_labels.in");
-
 fn single_preprocessing(image: &image::DynamicImage) -> ndarray::Array3<f32> {
     // resize image to 256x256
     let image = image.resize_exact(256, 256, image::imageops::FilterType::Triangle);
@@ -63,29 +59,4 @@ pub fn postprocessing(tensor: ndarray::Array2<f32>) -> ndarray::Array2<f32> {
         / tensor
             .sum_axis(ndarray::Axis(1))
             .insert_axis(ndarray::Axis(1))
-}
-
-/// Get the top k predictions for each batch element
-pub fn postprocessing_top_k(tensor: ndarray::Array2<f32>, k: usize) -> Vec<Vec<Prediction>> {
-    // for each row in the tensor, get the top k predictions
-    tensor
-        .outer_iter()
-        .map(|row| postprocessing_top_k_single(row.to_owned(), k))
-        .collect()
-}
-
-fn postprocessing_top_k_single(tensor: ndarray::Array1<f32>, k: usize) -> Vec<Prediction> {
-    // get the top k predictions
-    let mut top_k_classes = tensor
-        .into_iter()
-        .enumerate()
-        .map(|(i, x)| (i, x))
-        .collect::<Vec<_>>();
-    top_k_classes.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-    top_k_classes.truncate(k);
-
-    top_k_classes
-        .into_iter()
-        .map(|(i, x)| (String::from(IMAGENET_LABELS[i]), x))
-        .collect()
 }
