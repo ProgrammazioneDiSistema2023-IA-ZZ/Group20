@@ -424,7 +424,7 @@ mod tests {
     use prost::Message;
 
     use crate::onnx_format::TensorProto;
-    use crate::prepare::{postprocessing, postprocessing_top_k};
+    use crate::prepare::{batch_preprocessing, postprocessing, postprocessing_top_k};
     use crate::{
         onnx_format::ModelProto,
         service::{Config, Service},
@@ -443,16 +443,46 @@ mod tests {
 
     #[test]
     fn run_resnet_with_siamese_cat_image() {
-        let most_probable_class =
-            run_with_image_input("resnet18-v2-7", "tests/images/siamese-cat.jpg");
+        let input_parameters = vec![(String::from("N"), 1_usize)];
+        let most_probable_classes = run_with_image_input(
+            "resnet18-v2-7",
+            "tests/images/siamese-cat.jpg",
+            input_parameters,
+        );
+        let most_probable_class = most_probable_classes.get(0).expect("No result found");
         assert_eq!(most_probable_class, "Siamese cat, Siamese");
     }
 
     #[test]
     fn run_mobilenet_with_siamese_cat_image() {
-        let most_probable_class =
-            run_with_image_input("mobilenetv2-7", "tests/images/siamese-cat.jpg");
+        let input_parameters = vec![];
+        let most_probable_classes = run_with_image_input(
+            "mobilenetv2-7",
+            "tests/images/siamese-cat.jpg",
+            input_parameters,
+        );
+        let most_probable_class = most_probable_classes.get(0).expect("No result found");
         assert_eq!(most_probable_class, "Siamese cat, Siamese");
+    }
+
+    #[test]
+    fn run_resnet_with_siamese_cat_image_batch() {
+        let batch_size = 2_usize;
+        let input_parameters = vec![(String::from("N"), batch_size)];
+        let most_probable_classes = run_with_image_input(
+            "resnet18-v2-7",
+            "tests/images/siamese-cat.jpg",
+            input_parameters,
+        );
+
+        assert_eq!(most_probable_classes.len(), batch_size);
+
+        most_probable_classes
+            .iter()
+            .take(batch_size)
+            .for_each(|most_probable_class| {
+                assert_eq!(most_probable_class, "Siamese cat, Siamese");
+            });
     }
 
     fn test_service(model_name: &str, testset_folder: &str) {
@@ -480,7 +510,7 @@ mod tests {
 
         let mut expected_output_buffer = Vec::new();
         let mut expected_output_file =
-            File::open(format!("tests/testset/{}//output_0.pb", testset_folder)).unwrap();
+            File::open(format!("tests/testset/{}/output_0.pb", testset_folder)).unwrap();
         expected_output_file
             .read_to_end(&mut expected_output_buffer)
             .unwrap();
@@ -499,22 +529,34 @@ mod tests {
         assert!(err < 1e-4);
     }
 
-    fn run_with_image_input(model_name: &str, image_path: &str) -> String {
-        use crate::prepare::preprocessing;
+    /// Runs the service on the input data, using the input parameters and the default execution provider.
+    /// The input is an image file, which is preprocessed and then passed to the service.
+    /// The output is the most probable class for the image.
+    /// The batch size is passed as an input parameter, otherwise it defaults to 1.
+    /// The output is a vector of strings, one for each batch element.
+    fn run_with_image_input(
+        model_name: &str,
+        image_path: &str,
+        input_parameters: Vec<(String, usize)>,
+    ) -> Vec<String> {
+        // assuming that the first parameter is the batch size
+        let default_parameter = (String::from("N"), 1_usize);
+        let (_, batch_size) = input_parameters.get(0).unwrap_or(&default_parameter);
 
         let image = image::open(image_path).unwrap();
-        let preprocessed_image = preprocessing(image);
+        // Use the same image for all the batch elements
+        let batch = vec![image; *batch_size];
+        let preprocessed_batch = batch_preprocessing(&batch).expect("Could not preprocess batch");
 
-        //save the preprocessed tensor as an image file
+        // save the preprocessed tensor as an image file
         //preprocessed_image_to_file(&preprocessed_image, "tests/preprocessed_cat.jpg");
 
         let model_proto = read_model_proto(&format!("tests/models/{}.onnx", model_name));
         let config = Config { num_threads: 1 };
         let service = Service::new(model_proto, config);
-        let input_parameters = vec![(String::from("N"), 1_usize)];
 
         let result = service
-            .run(preprocessed_image.into_dyn(), input_parameters)
+            .run(preprocessed_batch.into_dyn(), input_parameters)
             .unwrap();
         let TensorData::Float(result) = result else {
             panic!("Invalid result type")
@@ -522,17 +564,12 @@ mod tests {
         let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
         let result = postprocessing(result);
 
-        //println!("Top 5 predictions:");
-        //for (i, (class, prob)) in  postprocessing_top_k(result, 5).iter().enumerate() {
-        //    println!("{}. class: {}, probability: {}", i + 1, class, prob);
-        //}
-
         let result = postprocessing_top_k(result, 1);
-        let [top_result, ..] = result.as_slice() else {
-            panic!("The final output should have at least one element")
-        };
-        let (top_class, _probability) = top_result;
-        top_class.clone()
+        // for each batch element, get the most probable class
+        result
+            .into_iter()
+            .map(|batch| batch[0].0.clone())
+            .collect::<Vec<String>>()
     }
 
     fn read_model_proto(path: &str) -> ModelProto {

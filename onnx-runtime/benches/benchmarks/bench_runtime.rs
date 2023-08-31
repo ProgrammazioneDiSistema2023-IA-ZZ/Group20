@@ -20,9 +20,9 @@ fn bench_with_cat_image(c: &mut Criterion) {
     group.finish();
 }
 
-fn run_with_cat_image(model_name: &str) -> ndarray::Array1<f32> {
+fn run_with_cat_image(model_name: &str) -> ndarray::Array2<f32> {
     let image = image::open("tests/images/siamese-cat.jpg").unwrap();
-    let preprocessed_image = preprocessing(image);
+    let preprocessed_image = preprocessing(&image);
 
     let model_proto = read_model_proto(format!("tests/models/{}.onnx", model_name).as_str());
     let config = Config { num_threads: 1 };
@@ -31,7 +31,9 @@ fn run_with_cat_image(model_name: &str) -> ndarray::Array1<f32> {
     let result = service
         .run(preprocessed_image.into_dyn(), input_parameters)
         .unwrap();
-    let TensorData::Float(result) = result else {panic!("Invalid result type")};
+    let TensorData::Float(result) = result else {
+        panic!("Invalid result type")
+    };
     let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
     postprocessing(result)
 }
