@@ -1,12 +1,9 @@
 import onnx_binding as onnx
 
-def prediction_to_str(prediction):
-    return f'{prediction[0]}: {prediction[1]}%'
-
 print('creating service')
-service = onnx.build_service('onnx-runtime/tests/models/mobilenetv2-7.onnx', 4)
+service = onnx.build_service('onnx-runtime/tests/models/resnet50-v2-7.onnx', 4)
 print('created')
-paths = ['onnx-runtime/tests/images/siamese-cat.jpg', 'onnx-runtime/tests/images/siamese-cat.jpg']
+paths = ['onnx-runtime/tests/images/apples_on_table.jpeg']
 print('calling prepare_and_run')
 output = service.prepare_and_run(paths)
 print('done')

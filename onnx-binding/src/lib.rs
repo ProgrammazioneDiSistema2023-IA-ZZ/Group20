@@ -54,9 +54,10 @@ impl PyService {
         input_parameters: Option<Vec<(String, usize)>>,
     ) -> PyResult<PyInferenceOutput> {
         let n_inputs = inputs.len();
-        let tmp = input_parameters.unwrap_or(vec![(String::from("N"), n_inputs)]);
-        println!("{}", tmp[0].1);
-        match self.service.prepare_and_run(inputs, tmp) {
+        match self.service.prepare_and_run(
+            inputs,
+            input_parameters.unwrap_or(vec![(String::from("N"), n_inputs)]),
+        ) {
             Err(err) => Err(PyErr::new::<PyValueError, _>(err.to_string())),
             Ok(inference_output) => Ok(PyInferenceOutput { inference_output }),
         }
