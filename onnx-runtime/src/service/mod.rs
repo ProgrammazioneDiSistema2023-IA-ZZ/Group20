@@ -107,14 +107,20 @@ impl InferenceOutput {
             .collect()
     }
 
-    pub fn get_top_k_class_names(&self, k: usize) -> Vec<String> {
+    pub fn get_top_k_class_names(&self, k: usize) -> Vec<Vec<String>> {
         let top_classes = self.get_top_k_predictions(k);
 
-        // for each batch element, get the most probable class
+        // for each batch element, get the top k classes
         top_classes
             .into_iter()
-            .map(|batch| batch[0].class.clone())
-            .collect::<Vec<String>>()
+            .map(|batch_element_top_classes| {
+                batch_element_top_classes
+                    .into_iter()
+                    .map(|prediction| prediction.class)
+                    .take(k)
+                    .collect()
+            })
+            .collect()
     }
 
     fn get_batch_element_top_k_classes(
@@ -714,7 +720,12 @@ mod tests {
             .prepare_and_run(batch, input_parameters)
             .expect("Could not infer the model");
 
-        result.get_top_k_class_names(1)
+        // get the most probable class for each batch element
+        result
+            .get_top_k_class_names(1)
+            .into_iter()
+            .flatten()
+            .collect()
     }
 
     fn read_testset(path: &str) -> Tensor {
