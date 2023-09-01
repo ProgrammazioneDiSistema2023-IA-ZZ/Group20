@@ -4,4 +4,3 @@ pub mod operators;
 pub mod providers;
 pub mod service;
 pub mod tensor;
-pub mod utils;

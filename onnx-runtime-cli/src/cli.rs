@@ -7,32 +7,30 @@ use strum::Display;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    /// Input image path
+    /// Input image path.
+    /// Example: --input /path/to/image1.jpg --input /path/to/image2.jpg
     #[arg(short, long)]
-    pub input: PathBuf,
+    pub input: Vec<PathBuf>,
 
-    /// Model name
+    /// Model name.
     /// Supported models: resnet18, mobilenet
     /// Default: mobilenet
     #[arg(short, long, default_value = "mobilenet")]
     pub model: Model,
 
     /// Number of threads to use for inference to parallelize a single operation. Must be greater than 0 and less than 65536.
-    /// Default: 4
     /// Example: --threads 8
     #[arg(short, long, default_value = "4", value_parser = clap::value_parser!(u16).range(1..))]
     pub threads: u16,
 
     /// Number of top infered class probabilities to show. Must be greater than 0 and less or equal than 1000.
-    /// Default: 5
     /// Example: --show 10
     #[arg(short, long, default_value = "5", value_parser = clap::value_parser!(u16).range(1..=1000))]
     pub show: u16,
 
-    /// Input parameters in the format name:value
-    /// Default: N:1
+    /// Input parameters in the format name:value.
     /// Example: --params N:1 --params BATCH_SIZE:1
-    #[arg(short, long, default_value = "N:1")]
+    #[arg(short, long)]
     pub params: Vec<InputParameter>,
 }
 
