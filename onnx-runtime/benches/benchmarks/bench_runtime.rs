@@ -1,9 +1,9 @@
 use criterion::{black_box, criterion_group, Criterion};
 use onnx_runtime::onnx_format::ModelProto;
-use onnx_runtime::prepare::{postprocessing, preprocessing};
 use onnx_runtime::providers::ParNaiveProvider;
-use onnx_runtime::service::Config;
-use onnx_runtime::service::Service;
+use onnx_runtime::service::prepare::{postprocessing, preprocessing};
+use onnx_runtime::service::utility::read_model_proto;
+use onnx_runtime::service::{Config, Service};
 use onnx_runtime::tensor::TensorData;
 use prost::Message;
 use std::{fs::File, io::Read, time::Duration};
@@ -47,9 +47,9 @@ fn bench_with_cat_image_2(c: &mut Criterion) {
     group.finish();
 }
 
-fn run_with_cat_image(model_name: &str, num_threads: usize) -> ndarray::Array1<f32> {
+fn run_with_cat_image(model_name: &str, num_threads: usize) -> ndarray::Array2<f32> {
     let image = image::open("tests/images/siamese-cat.jpg").unwrap();
-    let preprocessed_image = preprocessing(image);
+    let preprocessed_image = preprocessing(&image);
 
     let model_proto = read_model_proto(format!("tests/models/{}.onnx", model_name).as_str());
     let config = Config { num_threads };
@@ -63,14 +63,6 @@ fn run_with_cat_image(model_name: &str, num_threads: usize) -> ndarray::Array1<f
     };
     let result = result.into_dimensionality::<ndarray::Ix2>().unwrap();
     postprocessing(result)
-}
-
-fn read_model_proto(path: &str) -> ModelProto {
-    let mut buffer = Vec::new();
-    let mut file = File::open(path).unwrap();
-    file.read_to_end(&mut buffer).unwrap();
-
-    ModelProto::decode(buffer.as_slice()).unwrap()
 }
 
 criterion_group!(
