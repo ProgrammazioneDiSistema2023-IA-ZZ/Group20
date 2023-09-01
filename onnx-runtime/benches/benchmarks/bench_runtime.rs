@@ -1,12 +1,10 @@
 use criterion::{black_box, criterion_group, Criterion};
-use onnx_runtime::onnx_format::ModelProto;
 use onnx_runtime::providers::ParNaiveProvider;
 use onnx_runtime::service::prepare::{postprocessing, preprocessing};
 use onnx_runtime::service::utility::read_model_proto;
 use onnx_runtime::service::{Config, Service};
 use onnx_runtime::tensor::TensorData;
-use prost::Message;
-use std::{fs::File, io::Read, time::Duration};
+use std::time::Duration;
 
 fn bench_with_cat_image(c: &mut Criterion) {
     let mut group = c.benchmark_group("Runtime");

@@ -6,5 +6,12 @@ authors = ["Attilio Oliva", "Aldo Pietromatera", "Andrea Leone"]
 license = "MIT"
 repository = "https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group20"
 
+include = ["/models"]
+
 [dependencies]
+clap = { version = "4.4.1", features = ["derive"] }
+env_logger = "0.10.0"
+log = "0.4.20"
 onnx-runtime = { path = "../onnx-runtime" }
+strum = { version = "0.25.0", features = ["derive"] }
+thiserror = "1.0.47"
