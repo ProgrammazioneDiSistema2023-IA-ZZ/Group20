@@ -1,3 +1,5 @@
+//! Contains the implementation of the NaiveProvider struct.
+
 use ndarray::{Array1, ArrayD, Ix0, Ix2, IxDyn};
 use rayon::ThreadPool;
 use std::ops::Add;
@@ -12,6 +14,17 @@ use crate::{
 
 use super::{OperationError, Provider};
 
+/// Naive implementation of the ONNX operators.
+///
+/// This implementation relies on [`ndarray`] to execute the operators.
+/// It is not optimized and is only used to test the correctness of the ONNX models, because it is easier to read and debug.
+///
+/// The main limitation of this implementation is that the Convolution is implemented using a naive algorithm, which is VERY slow.
+/// An optimized implementation of the Convolution would need the im2col algorithm, which is not trivial to implement.
+/// But doing so, the Convolution could rely on the Gemm operator, which is much faster (basically a 2D matrix multiplication).
+///
+/// This operator does not support parallelization.
+/// A parallelized version of this operator is available in the [ParNaiveProvider](crate::providers::ParNaiveProvider).
 pub struct NaiveProvider;
 impl Provider for NaiveProvider {
     fn name(&self) -> &str {

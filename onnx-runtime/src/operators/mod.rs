@@ -1,4 +1,4 @@
-//! # Operator
+//! # ONNX Operator definitions
 //!
 //! This module define the ONNX Operators structures.
 //!
@@ -6,7 +6,9 @@
 //! (ResNet18 and MobileNetV2).
 //!
 
+/// ONNX Operators attributes structures
 mod attributes;
+/// ONNX Operators initializers structures
 mod initializers;
 
 pub use attributes::*;
@@ -15,6 +17,13 @@ pub use initializers::*;
 use crate::tensor::TensorParametrizedShape;
 use thiserror::Error;
 
+/// Supported operators for the ONNX models.
+///
+/// Two operators do not have a corresponding ONNX operator:
+/// - **InputFeed**: it is used to feed the input tensor to the model
+/// - **OutputCollector**: it is used to collect the output tensor from the model
+///
+/// The other operators are defined in the [ONNX specification](https://onnx.ai/onnx/operators/).
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Operator {

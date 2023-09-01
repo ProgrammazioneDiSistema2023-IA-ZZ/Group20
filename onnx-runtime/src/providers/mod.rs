@@ -1,3 +1,10 @@
+//! Contains the execution providers.
+//!
+//! Currently only two execution provider exists:
+//! - [`NaiveProvider`]: it is a naive implementation of the operators using [`ndarray`]. As such, it is not optimized for performance.
+//! - [`ParNaiveProvider`]: it is a parallelized version of the naive implementation. It uses [`rayon`] to parallelize the execution of the operators.
+//! It will fallback to the [`NaiveProvider`] if the parallelization is not possible (e.g. the number of threads is 1).
+
 mod naive;
 mod parallel;
 
@@ -15,6 +22,7 @@ use crate::{
     tensor::TypeToTensorDataType,
 };
 
+/// The default execution provider used by the ONNX runtime via [`Service`].
 pub type DefaultProvider = ParNaiveProvider;
 
 /// A trait that has to be implemented by all the execution providers.

@@ -29,6 +29,9 @@ impl NodeInfo {
     }
 }
 
+/// This function creates an executable graph from a parsed ONNX model.
+/// It returns a [`RuntimeGraph`] that can be used to execute the ONNX model with the [`Service`](crate::service::Service).
+/// It returns a [`GraphError`] if the conversion fails.
 pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError> {
     let mut parsed_nodes: HashMap<String, NodeInfo> = HashMap::new();
 
@@ -63,8 +66,6 @@ pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError>
 
     parsed_nodes.insert(input_node_name, NodeInfo::Input(input_node.index() as u32));
     for node in nodes {
-        //let pg = deps.add_node("petgraph");
-
         let op_type = match node.op_type {
             Some(s) => s,
             None => {

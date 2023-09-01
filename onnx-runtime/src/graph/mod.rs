@@ -1,13 +1,10 @@
-///
-/// # Graph
-///
-/// This module defines the mapping between the ONNX standard and a Graph structure used to infer a ONNX model.
-///
+//! Contains the Graph utilities.
+//!
+//! This module defines the way to map an ONNX model to an execution graph structure to infer a ONNX model.
+
+/// Strategy to use when converting an ONNX model to an execution graph.
 mod translator;
 pub use translator::*;
-
-mod ioreader;
-pub use ioreader::*;
 
 use thiserror::Error;
 

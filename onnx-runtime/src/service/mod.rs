@@ -1,3 +1,11 @@
+//! Contains the service that can be used to run inference on a model.
+//!
+//! The service is created using a [`ServiceBuilder`], which can be created using [`ServiceBuilder::new`].
+//!
+//! The service can be used to run inference on a model using the [`Service::run`] method.
+//! if you want to preprocess and postprocess the input and output data yourself.
+//! Otherwise, you can use the [`Service::prepare_and_run`] method, which will preprocess the input data and postprocess the output data for you.
+
 mod labels;
 pub mod prepare;
 pub mod utility;
