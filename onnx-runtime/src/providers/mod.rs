@@ -15,7 +15,7 @@ use crate::{
     tensor::TypeToTensorDataType,
 };
 
-pub type DefaultProvider = NaiveProvider;
+pub type DefaultProvider = ParNaiveProvider;
 
 /// A trait that has to be implemented by all the execution providers.
 /// It contains the methods that are used to execute the ONNX operators.
@@ -73,27 +73,34 @@ pub trait Provider {
     ) -> Result<ArrayD<usize>, OperationError>;
 
     fn relu(thread_pool: &ThreadPool, x: ArrayD<f32>) -> ArrayD<f32>;
+
     fn clip(thread_pool: &ThreadPool, x: ArrayD<f32>, attrs: ClipAttributes) -> ArrayD<f32>;
+
     fn add(
         thread_pool: &ThreadPool,
         x: ArrayD<f32>,
         y: ArrayD<f32>,
     ) -> Result<ArrayD<f32>, OperationError>;
+
     fn shape(thread_pool: &ThreadPool, x: ArrayD<f32>) -> ArrayD<i64>;
+
     fn global_average_pool(
         thread_pool: &ThreadPool,
         x: ArrayD<f32>,
     ) -> Result<ArrayD<f32>, OperationError>;
+
     fn reshape(
         thread_pool: &ThreadPool,
         x: ArrayD<f32>,
         shape: ArrayD<i64>,
     ) -> Result<ArrayD<f32>, OperationError>;
+
     fn max_pool(
         thread_pool: &ThreadPool,
         x: ArrayD<f32>,
         attrs: MaxPoolAttributes,
     ) -> Result<ArrayD<f32>, OperationError>;
+
     fn concat<T>(
         thread_pool: &ThreadPool,
         x: Vec<ArrayD<T>>,
