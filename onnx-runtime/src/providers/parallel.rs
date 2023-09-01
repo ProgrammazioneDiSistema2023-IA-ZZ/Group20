@@ -198,7 +198,6 @@ impl Provider for ParNaiveProvider {
         // result tensor
         let output = thread_pool.install(|| {
             (0..batch_size)
-                .into_iter()
                 .map(|batch| {
                     (0..in_chans)
                         .into_par_iter()
