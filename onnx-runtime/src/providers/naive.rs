@@ -1,4 +1,5 @@
 use ndarray::{Array1, ArrayD, Ix0, Ix2, IxDyn};
+use rayon::ThreadPool;
 use std::ops::Add;
 
 use crate::{
@@ -21,7 +22,11 @@ impl Provider for NaiveProvider {
         7
     }
 
-    fn add(x: ArrayD<f32>, y: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError> {
+    fn add(
+        _thread_pool: &ThreadPool,
+        x: ArrayD<f32>,
+        y: ArrayD<f32>,
+    ) -> Result<ArrayD<f32>, OperationError> {
         if x.shape() == y.shape() {
             Ok(x.add(y))
         } else {
@@ -32,11 +37,11 @@ impl Provider for NaiveProvider {
         }
     }
 
-    fn relu(x: ArrayD<f32>) -> ArrayD<f32> {
+    fn relu(_thread_pool: &ThreadPool, x: ArrayD<f32>) -> ArrayD<f32> {
         x.mapv(|v| v.max(0.0))
     }
 
-    fn clip(x: ArrayD<f32>, attrs: ClipAttributes) -> ArrayD<f32> {
+    fn clip(_thread_pool: &ThreadPool, x: ArrayD<f32>, attrs: ClipAttributes) -> ArrayD<f32> {
         let ClipAttributes {
             min: min_v,
             max: max_v,
@@ -44,7 +49,7 @@ impl Provider for NaiveProvider {
         x.mapv(|x| x.max(min_v).min(max_v))
     }
 
-    fn shape(x: ArrayD<f32>) -> ArrayD<i64> {
+    fn shape(_thread_pool: &ThreadPool, x: ArrayD<f32>) -> ArrayD<i64> {
         ArrayD::<i64>::from_shape_vec(
             IxDyn(&[x.ndim()]),
             x.shape().iter().map(|e| *e as i64).collect(),
@@ -53,6 +58,7 @@ impl Provider for NaiveProvider {
     }
 
     fn gather(
+        _thread_pool: &ThreadPool,
         x: ArrayD<usize>,
         index: usize,
         attrs: GatherAttributes,
@@ -70,6 +76,7 @@ impl Provider for NaiveProvider {
     }
 
     fn unsqueeze(
+        _thread_pool: &ThreadPool,
         x: ArrayD<usize>,
         attrs: UnsqueezeAttributes,
     ) -> Result<ArrayD<usize>, OperationError> {
@@ -85,7 +92,11 @@ impl Provider for NaiveProvider {
             .expect("Unsqueeze failed"))
         }
     }
-    fn concat<T>(x: Vec<ArrayD<T>>, attrs: ConcatAttributes) -> Result<ArrayD<T>, OperationError>
+    fn concat<T>(
+        _thread_pool: &ThreadPool,
+        x: Vec<ArrayD<T>>,
+        attrs: ConcatAttributes,
+    ) -> Result<ArrayD<T>, OperationError>
     where
         T: TypeToTensorDataType + Copy,
     {
@@ -97,7 +108,10 @@ impl Provider for NaiveProvider {
             Ok(ArrayD::from_shape_fn(IxDyn(&[x.len()]), |i| x[i[0]][[0]]))
         }
     }
-    fn global_average_pool(x: ArrayD<f32>) -> Result<ArrayD<f32>, OperationError> {
+    fn global_average_pool(
+        _thread_pool: &ThreadPool,
+        x: ArrayD<f32>,
+    ) -> Result<ArrayD<f32>, OperationError> {
         let [batch_size, channels, height, width] = *x.shape() else {
             return Err(OperationError::WrongDim(4, x.ndim()));
         };
@@ -115,7 +129,11 @@ impl Provider for NaiveProvider {
         ))
     }
 
-    fn reshape(x: ArrayD<f32>, shape: ArrayD<i64>) -> Result<ArrayD<f32>, OperationError> {
+    fn reshape(
+        _thread_pool: &ThreadPool,
+        x: ArrayD<f32>,
+        shape: ArrayD<i64>,
+    ) -> Result<ArrayD<f32>, OperationError> {
         if shape.len() != 2 {
             return Err(OperationError::WrongShape(
                 "[2]".to_string(),
@@ -141,6 +159,7 @@ impl Provider for NaiveProvider {
     }
 
     fn gemm(
+        _thread_pool: &ThreadPool,
         a: ArrayD<f32>,
         b: ArrayD<f32>,
         c: ArrayD<f32>,
@@ -200,6 +219,7 @@ impl Provider for NaiveProvider {
     }
 
     fn batch_norm(
+        _thread_pool: &ThreadPool,
         x: ArrayD<f32>,
         scale: ArrayD<f32>,
         b: ArrayD<f32>,
@@ -250,7 +270,11 @@ impl Provider for NaiveProvider {
         Ok(scale * x_normalized + b)
     }
 
-    fn max_pool(x: ArrayD<f32>, attrs: MaxPoolAttributes) -> Result<ArrayD<f32>, OperationError> {
+    fn max_pool(
+        _thread_pool: &ThreadPool,
+        x: ArrayD<f32>,
+        attrs: MaxPoolAttributes,
+    ) -> Result<ArrayD<f32>, OperationError> {
         // checks
         let [batch_size, in_chans, height, width] = *x.shape() else {
             return Err(OperationError::WrongDim(4, x.shape().len()));
@@ -304,6 +328,7 @@ impl Provider for NaiveProvider {
     }
 
     fn conv(
+        _thread_pool: &ThreadPool,
         x: ArrayD<f32>,
         weights: ArrayD<f32>,
         bias: Option<Array1<f32>>,
