@@ -17,7 +17,7 @@ use std::{borrow::BorrowMut, error::Error, ops::ControlFlow, path::PathBuf};
 use thiserror::Error;
 
 use crate::{
-    graph::{create_graph, GraphError},
+    graph::{to_exec_graph, GraphError},
     onnx_format::ModelProto,
     operators::{OperationError, Operator},
     providers::{DefaultProvider, Provider},
@@ -219,7 +219,7 @@ impl Service {
     {
         let mut final_output = None;
         let mut operations_graph =
-            create_graph(self.model.clone()).map_err(ServiceError::CouldNotTranslateModel)?;
+            to_exec_graph(self.model.clone()).map_err(ServiceError::CouldNotTranslateModel)?;
         let ordered_operation_list = toposort(&operations_graph, None)
             .map_err(|_| ServiceError::InvalidModel("The model's graph is not a DAG"))?;
 

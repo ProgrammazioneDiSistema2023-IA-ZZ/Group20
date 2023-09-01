@@ -32,7 +32,7 @@ impl NodeInfo {
 /// This function creates an executable graph from a parsed ONNX model.
 /// It returns a [`RuntimeGraph`] that can be used to execute the ONNX model with the [`Service`](crate::service::Service).
 /// It returns a [`GraphError`] if the conversion fails.
-pub fn create_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError> {
+pub fn to_exec_graph(model_proto: ModelProto) -> Result<RuntimeGraph, GraphError> {
     let mut parsed_nodes: HashMap<String, NodeInfo> = HashMap::new();
 
     let mut model_graph = RuntimeGraph::new();
@@ -537,7 +537,7 @@ mod tests {
 
     fn run_parsed_model(path: &str) -> usize {
         let parsed_model = get_parsed_model(path);
-        let graph = create_graph(parsed_model).unwrap();
+        let graph = to_exec_graph(parsed_model).unwrap();
 
         graph.node_count()
     }
