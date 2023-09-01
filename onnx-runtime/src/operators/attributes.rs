@@ -1,5 +1,3 @@
-
-
 #[derive(Debug, Clone)]
 pub struct ConvAttributes {
     // assuming 4D tensors
