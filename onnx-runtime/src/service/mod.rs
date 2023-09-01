@@ -299,10 +299,7 @@ where
                             .iter()
                             .find(|(param_name, _)| param_name == name)
                             .ok_or_else(|| {
-                                OperationError::UnexpectedShape(
-                                    format!("Input parameter `{}` not found", name),
-                                    format!("Input parameter `{}` should be passed", name),
-                                )
+                                OperationError::MissingParamDimension(String::from(name))
                             })?;
                         Ok(param.1)
                     }
@@ -312,9 +309,9 @@ where
 
             //check if the input shape matches the required shape
             if required_shape != input_shape {
-                return Err(OperationError::UnexpectedShape(
-                    format!("{:?}", required_shape),
-                    format!("{:?}", input_shape),
+                return Err(OperationError::UnexpectedInputShape(
+                    required_shape.to_vec(),
+                    input_shape.to_vec(),
                 ));
             }
 

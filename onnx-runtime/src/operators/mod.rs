@@ -64,7 +64,7 @@ pub enum OperationError {
     WrongShape(String, String),
     #[error("Wrong tensor dimensionality: expected `{0}`, found `{1}`")]
     WrongDim(usize, usize),
-    #[error("The operation requires coherent tensor shapes, but they don't match: `{0}` != `{1}`")]
+    #[error("The operation requires coherent tensor shapes, but they don't match, `{0}` != `{1}`")]
     UnexpectedShape(String, String),
     #[error("The specified operator(s) are not supported")]
     UnsupportedOperator,
@@ -72,6 +72,11 @@ pub enum OperationError {
     InvalidOperator,
     #[error("The tensor `{1}` type is not valid for the operator `{0}`")]
     InvalidTensorType(String, String),
+    #[error("The operation requires a parametrized dimension `{0}`, but it is not provided")]
+    MissingParamDimension(String),
+    #[error("The model requires the shape {0:?}, but the input has shape {1:?}.
+            Please check the input shape, maybe you provided a wrong, or forgot to add a batch dimension as a parameter?")]
+    UnexpectedInputShape(Vec<usize>, Vec<usize>),
     #[error("Unknwon operation error")]
     Unknown,
 }
