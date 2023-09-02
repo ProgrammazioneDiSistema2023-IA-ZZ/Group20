@@ -4,7 +4,7 @@ This is the main library that implements our ONNX Runtime.
 
 We chose to support the **mobilenetv2-7** and **resnet18-v2-7** models. These models are available in the [tests/models](../tests/models) folder.
 
-As required #1 for the project, we have implemented the following features:
+As [required for the project](https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group20/issues/1), we have implemented the following features:
 
 - [Encoding and decoding of ONNX models](#encoding-and-decoding-of-onnx-models)
 - [Execution of ONNX models](#execution-of-onnx-models)
@@ -19,9 +19,9 @@ Check out the [README.md](../README.md) of the project for more general informat
 
 ## Encoding and decoding of ONNX models
 
-PR #2 implements this feature and explains how it works.
+PR [#2](https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group20/pull/2) implements this feature and explains how it works.
 
-Briefly, we take advantage of the Protobuf code generation and the [prost](https://docs.rs/prost/latest/prost/) crate to encode and decode ONNX models. Please check out #2 for more details, like how to generate the Rust code and why we picked this approach.
+Briefly, we take advantage of the Protobuf code generation and the [prost](https://docs.rs/prost/latest/prost/) crate to encode and decode ONNX models. Please check out [#2](https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group20/pull/2) for more details, like how to generate the Rust code and why we picked this approach.
 
 ### Example
 
@@ -53,7 +53,7 @@ out_file.write_all(&out_buffer).unwrap();
 ```
 
 ## Execution of ONNX models
-This is such a big feature that it has its own tracking issue: #3.
+This is such a big feature that it has its own tracking issue: [#3](https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group20/issues/3).
 
 ### Data structure for model execution
 The ModelProto structure is inconvenient to use for model execution. Thus, we had to create a data structure that is more convenient for model execution. We opted for a graph (using [petgraph](https://docs.rs/petgraph/latest/petgraph/)) and a [toposort](https://docs.rs/petgraph/latest/petgraph/algo/fn.toposort.html) algorithm to arrange the correct execution order. This was done in the `translator` module.
@@ -65,7 +65,7 @@ The implementation of the operators can be found in the `provider` module. Every
 **NOTE**: floating point operations are not bit-exact. Thus, we had to use a tolerance up to 1e-4 to compare the results. This is not a problem for the project, but it is something to keep in mind when we'll compare the inferred results with other frameworks.
 
 ## Parallel execution
-PR #11 implements this feature and explains how it was done.
+PR [#11](https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group20/pull/11) implements this feature and explains how it was done.
 
 In a nutshell, we used the [rayon](https://docs.rs/rayon/latest/rayon/) crate to parallelize the execution of the operators in our only Execution Provider (`NaiveProvider`) and put them in the `ParNaiveProvider`.
 
