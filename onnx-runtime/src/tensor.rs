@@ -2,8 +2,10 @@
 //!
 //! This module contains utilities to deal with dynamic ONNX tensors.
 //!
-//! The main struct is [`Tensor`], which contains the name of the tensor and its data.
+//! The enum [`Tensor`], defines the different tensor that can be found in an ONNX model and contains their data.
 //! The data is stored in the [`TensorData`] enum, which contains the actual array with generic element data type.
+//! The [`TensorData`] enum is used to abstract the dynamic data type of the tensor.
+
 use std::fmt::Display;
 
 use ndarray::{ArrayBase, ArrayD, IxDyn, OwnedRepr};
@@ -196,6 +198,10 @@ impl Display for TensorDataType {
     }
 }
 
+/// Abstract enum representing the different types of data that can be stored in a tensor
+///
+/// ONNX model execution relies on dynamic data types. This means that the data type of a tensor is not known before the model execution.
+/// This is a useful abstraction to deal with this dynamic data type.
 #[derive(Debug, Clone)]
 pub enum TensorData {
     Float(ArrayD<f32>),

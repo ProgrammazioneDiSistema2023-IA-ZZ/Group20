@@ -1,3 +1,5 @@
+//! Contains the ParNaiveProvider implementation.
+
 use ndarray::Axis;
 use ndarray::{Array1, ArrayD, Ix2, IxDyn};
 use rayon::prelude::*;
@@ -14,6 +16,11 @@ use crate::{
 
 use super::{NaiveProvider, OperationError, Provider};
 
+/// Parallel version of the Naive execution provider.
+///
+/// It takes [`NaiveProvider`] and parallelize the most impacting operations using the [`rayon`] crate.
+///
+/// It still fallback to [`NaiveProvider`] to execute the operators that are not parallelized.
 pub struct ParNaiveProvider;
 impl Provider for ParNaiveProvider {
     fn name(&self) -> &str {

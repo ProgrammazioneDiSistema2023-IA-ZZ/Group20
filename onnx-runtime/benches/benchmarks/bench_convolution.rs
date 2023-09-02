@@ -4,7 +4,7 @@ use ndarray::{ArrayD, Ix1, IxDyn};
 use npy::NpyData;
 use onnx_runtime::{
     operators::*,
-    providers::{NaiveProvider, ParNaiveProvider, Provider},
+    providers::{ParNaiveProvider, Provider},
 };
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::{fs::File, io::Read, ops::Sub, time::Duration};
@@ -53,7 +53,7 @@ fn convolution_huge() {
         .unwrap();
     let y = load("tests/tensors/convolution/huge/y.npy", &y_shape);
     let attrs = ConvAttributes::new([1, 1], 1, [3, 3], [1, 1, 1, 1], [1, 1]);
-    let my_y = NaiveProvider::conv(&THREAD_POOL_4, x, w, Some(b), attrs).unwrap();
+    let my_y = ParNaiveProvider::conv(&THREAD_POOL_4, x, w, Some(b), attrs).unwrap();
     let err = y.sub(my_y).mapv(|x| x.abs()).mean().unwrap();
     //println!("avg error = {}", err);
     assert!(err < 1e-4);

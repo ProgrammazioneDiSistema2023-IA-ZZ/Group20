@@ -1,4 +1,4 @@
-//! # Operator
+//! # ONNX Operator definitions
 //!
 //! This module define the ONNX Operators structures.
 //!
@@ -6,7 +6,9 @@
 //! (ResNet18 and MobileNetV2).
 //!
 
+/// ONNX Operators attributes structures
 mod attributes;
+/// ONNX Operators initializers structures
 mod initializers;
 
 pub use attributes::*;
@@ -15,6 +17,13 @@ pub use initializers::*;
 use crate::tensor::TensorParametrizedShape;
 use thiserror::Error;
 
+/// Supported operators for the ONNX models.
+///
+/// Two operators do not have a corresponding ONNX operator:
+/// - **InputFeed**: it is used to feed the input tensor to the model
+/// - **OutputCollector**: it is used to collect the output tensor from the model
+///
+/// The other operators are defined in the [ONNX specification](https://onnx.ai/onnx/operators/).
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Operator {
@@ -64,7 +73,7 @@ pub enum OperationError {
     WrongShape(String, String),
     #[error("Wrong tensor dimensionality: expected `{0}`, found `{1}`")]
     WrongDim(usize, usize),
-    #[error("The operation requires coherent tensor shapes, but they don't match: `{0}` != `{1}`")]
+    #[error("The operation requires coherent tensor shapes, but they don't match, `{0}` != `{1}`")]
     UnexpectedShape(String, String),
     #[error("The specified operator(s) are not supported")]
     UnsupportedOperator,
@@ -72,6 +81,11 @@ pub enum OperationError {
     InvalidOperator,
     #[error("The tensor `{1}` type is not valid for the operator `{0}`")]
     InvalidTensorType(String, String),
+    #[error("The operation requires a parametrized dimension `{0}`, but it is not provided")]
+    MissingParamDimension(String),
+    #[error("The model requires the shape {0:?}, but the input has shape {1:?}.
+            Please check the input shape, maybe you provided a wrong, or forgot to add a batch dimension as a parameter?")]
+    UnexpectedInputShape(Vec<usize>, Vec<usize>),
     #[error("Unknwon operation error")]
     Unknown,
 }
