@@ -2,7 +2,7 @@
 
 This repository contains the group project for an ONNX Runtime implementation using Rust. The project is part of the Italian “System and device programming” course ([02GRSOV](https://didattica.polito.it/pls/portal30/gap.pkg_guide.viewGap?p_cod_ins=02GRSOV&p_a_acc=2023&p_header=S&p_lang=IT&multi=N)) at Polytechnic University of Turin.
 
-The requirements for the project are collected in issue #1.
+The requirements for the project are collected in [issue #1](https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group20/issues/1).
 
 Nearly all the development process is documented in the issues and in the pull requests. You can start from the requirements and then follow the development process to understand how the project was developed.
 
