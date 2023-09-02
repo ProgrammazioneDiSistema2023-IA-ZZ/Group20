@@ -1,5 +1,3 @@
-use onnx_runtime::onnx_format;
-
 use ndarray::{Array2, Array4};
 use prost::Message;
 use std::{
@@ -20,7 +18,7 @@ fn deserialize_prebuilt_model() {
     let mut file = File::open("tests/models/mobilenetv2-7.onnx").unwrap();
     file.read_to_end(&mut buffer).unwrap();
 
-    let parsed_model = onnx_format::ModelProto::decode(buffer.as_slice());
+    let parsed_model = ModelProto::decode(buffer.as_slice());
 
     assert!(parsed_model.is_ok());
 }
