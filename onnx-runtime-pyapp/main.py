@@ -44,8 +44,8 @@ def main():
        exit()
 
     network_path = 'models/{}.onnx'.format(network_name)
-    
-    image_path = '../onnx-runtime/tests/images/{}'.format(image_name)
+
+    image_path = 'images/{}'.format(image_name)
     image = Image.open(image_path)
     image = np.array(image.convert('RGB'))
 
