@@ -31,7 +31,7 @@ def main():
     arguments = sys.argv
 
     if len(arguments) == 1:
-        image_name = 'siamese-cat.jpg'
+        image_name = 'siamese-cat'
         network_name = 'resnet'
     elif len(arguments) == 2:
         image_name = arguments[1]
@@ -45,7 +45,7 @@ def main():
 
     network_path = 'models/{}.onnx'.format(network_name)
 
-    image_path = 'images/{}'.format(image_name)
+    image_path = 'images/{}.jpeg'.format(image_name)
     image = Image.open(image_path)
     image = np.array(image.convert('RGB'))
 
