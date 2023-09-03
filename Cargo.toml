@@ -3,4 +3,5 @@ resolver = "2"
 members = [
     "onnx-runtime",
     "onnx-runtime-cli",
+    "onnx-binding",
 ]
