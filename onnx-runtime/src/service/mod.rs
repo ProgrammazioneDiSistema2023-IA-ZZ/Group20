@@ -1,3 +1,11 @@
+//! Contains the service that can be used to run inference on a model.
+//!
+//! The service is created using a [`ServiceBuilder`], which can be created using [`ServiceBuilder::new`].
+//!
+//! The service can be used to run inference on a model using the [`Service::run`] method.
+//! if you want to preprocess and postprocess the input and output data yourself.
+//! Otherwise, you can use the [`Service::prepare_and_run`] method, which will preprocess the input data and postprocess the output data for you.
+
 mod labels;
 pub mod prepare;
 pub mod utility;
@@ -9,7 +17,7 @@ use std::{borrow::BorrowMut, error::Error, ops::ControlFlow, path::PathBuf};
 use thiserror::Error;
 
 use crate::{
-    graph::{create_graph, GraphError},
+    graph::{to_exec_graph, GraphError},
     onnx_format::ModelProto,
     operators::{OperationError, Operator},
     providers::{DefaultProvider, Provider},
@@ -211,7 +219,7 @@ impl Service {
     {
         let mut final_output = None;
         let mut operations_graph =
-            create_graph(self.model.clone()).map_err(ServiceError::CouldNotTranslateModel)?;
+            to_exec_graph(self.model.clone()).map_err(ServiceError::CouldNotTranslateModel)?;
         let ordered_operation_list = toposort(&operations_graph, None)
             .map_err(|_| ServiceError::InvalidModel("The model's graph is not a DAG"))?;
 
@@ -299,10 +307,7 @@ where
                             .iter()
                             .find(|(param_name, _)| param_name == name)
                             .ok_or_else(|| {
-                                OperationError::UnexpectedShape(
-                                    format!("Input parameter `{}` not found", name),
-                                    format!("Input parameter `{}` should be passed", name),
-                                )
+                                OperationError::MissingParamDimension(String::from(name))
                             })?;
                         Ok(param.1)
                     }
@@ -312,9 +317,9 @@ where
 
             //check if the input shape matches the required shape
             if required_shape != input_shape {
-                return Err(OperationError::UnexpectedShape(
-                    format!("{:?}", required_shape),
-                    format!("{:?}", input_shape),
+                return Err(OperationError::UnexpectedInputShape(
+                    required_shape.to_vec(),
+                    input_shape.to_vec(),
                 ));
             }
 
