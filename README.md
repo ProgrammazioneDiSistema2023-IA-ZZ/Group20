@@ -99,3 +99,13 @@ python -m http.server --directory target/criterion/
 ```
 
 Then you can open the report at the following address: http://localhost:8000/report/index.html
+
+#### Report example
+
+This is an output example obtained using a machine with a i3-10100F CPU:
+Resnet [4 threads]            |  Mobilenet [4 threads]
+:-------------------------:|:-------------------------:
+![resnet](https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group20/assets/75045331/fd95634e-5db8-4364-a78e-cbcecb9dff1c) | ![mobilenet](https://github.com/ProgrammazioneDiSistema2023-IA-ZZ/Group20/assets/75045331/c869f711-8bd2-4e71-b30d-deebe6eedcc0)
+
+
+
