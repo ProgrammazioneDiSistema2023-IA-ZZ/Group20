@@ -11,9 +11,7 @@ Nearly all the development process is documented in the issues and in the pull r
 It is organized using a [cargo workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) with the following structure:
 
 - [onnx-runtime](onnx-runtime/README.md): the main library that implements our ONNX Runtime
-
 - [onnx-runtime-cli](onnx-runtime-cli/README.md): a command line interface app that uses the library
-
 - [onnx-binding](onnx-binding/README.md): Python bindings for the library
 - [onnx-runtime-pyapp](onnx-runtime-pyapp/README.md): a Python app that uses our Python bindings
 
@@ -82,15 +80,10 @@ cargo bench --bench "Cat mobilenet 4"
 The interesting benchmarks are the ones that have the following names:
 
 - `Cat mobilenet`: it runs the mobilenet model with a cat image as input in single thread mode
-
 - `Cat mobilenet 2`: it runs the mobilenet model with a cat image as input in multi thread mode (2 threads)
-
 - `Cat mobilenet 4`: it runs the mobilenet model with a cat image as input in multi thread mode (4 threads)
-
 - `Cat resnet`: it runs the resnet model with a cat image as input in single thread mode
-
 - `Cat resnet 2`: it runs the resnet model with a cat image as input in multi thread mode (2 threads)
-
 - `Cat resnet 4`: it runs the resnet model with a cat image as input in multi thread mode (4 threads)
 
 ### Benchmark reports
