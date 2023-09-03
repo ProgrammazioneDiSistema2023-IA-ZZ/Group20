@@ -14,7 +14,8 @@ It is organized using a [cargo workspace](https://doc.rust-lang.org/book/ch14-03
 
 - [onnx-runtime-cli](onnx-runtime-cli/README.md): a command line interface app that uses the library
 
-- [onnx-runtime-bindings](onnx-runtime-bindings/README.md): a Python binding for the library
+- [onnx-binding](onnx-binding/README.md): Python bindings for the library
+- [onnx-runtime-pyapp](onnx-runtime-pyapp/README.md): a Python app that uses our Python bindings
 
 ## Code documentation (cargo doc)
 
