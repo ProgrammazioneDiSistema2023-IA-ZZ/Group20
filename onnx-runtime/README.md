@@ -15,7 +15,7 @@ Python **bindings** for the library are provided by [onnx-runtime-bindings](../o
 An example of how to use the library can be seen in the [onnx-runtime-cli](../onnx-runtime-cli/README.md) app.
 However, almost each library feature has tests that can be used as examples.
 
-Check out the [README.md](../README.md) of the project for more general information about the project. You can also find information about [docs generation](../README.md#code-documentation-cargo-doc), [benchmarking](../README.md#benchmarking) and [testing](../README.md#testing-cargo-test).
+Check out the [README.md](../README.md) of the workspace project for more general information about the project. You can also find information about [docs generation](../README.md#code-documentation-cargo-doc), [benchmarking](../README.md#benchmarking) and [testing](../README.md#testing-cargo-test).
 
 ## Encoding and decoding of ONNX models
 
