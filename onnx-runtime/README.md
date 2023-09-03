@@ -60,7 +60,7 @@ The ModelProto structure is inconvenient to use for model execution. Thus, we ha
 
 ### Operators execution implementation
 The next step was to implement the execution of the operators. ONNX supports a lot of operators, but the project requirements states to chose them in order to support at least two models. We decided to support the **mobilenetv2** and **resnet18v2** models. Furthermore, ONNX specs have a lot of versions. We chose to support **version 7**. The implementations rely on the [ndarray](https://docs.rs/ndarray/latest/ndarray/) crate and use very simple algorithms. For example, the convolution operator is implemented using a naive algorithm. Hence, poor performance are expected (at least ~10 times slower than smarter implementations). Simpler algorithms were used to keep the implementation simple and to focus on the overall architecture of the project.
-The implementation of the operators can be found in the `provider` module. Every operator has been thoroughly tested in [tests/operators.rs](tests/operators.rs) by comparing the results with the ones obtained with python numpy.
+The implementation of the operators can be found in the `provider` module. Every operator has been thoroughly tested in [tests/operators.rs](tests/operators.rs) by comparing the results with the ones obtained with python PyTorch.
 
 **NOTE**: floating point operations are not bit-exact. Thus, we had to use a tolerance up to 1e-4 to compare the results. This is not a problem for the project, but it is something to keep in mind when we'll compare the inferred results with other frameworks.
 
