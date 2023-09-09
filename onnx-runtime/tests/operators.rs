@@ -461,10 +461,6 @@ fn test_max_pool_big() {
 
 #[test]
 fn test_par_max_pool() {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(1)
-        .build_global()
-        .unwrap();
     let shape_x = [8, 4, 9, 9];
     let shape_y = [8, 4, 5, 5];
     let x: ArrayD<f32> = load("tests/tensors/maxpool/small/x.npy", &shape_x);
@@ -478,10 +474,6 @@ fn test_par_max_pool() {
 
 #[test]
 fn test_par_convolution_big() {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(4)
-        .build_global()
-        .unwrap();
     let x_shape = [1, 64, 224, 224];
     let w_shape = [64, 64, 3, 3];
     let b_shape = [64];
