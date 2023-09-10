@@ -1,4 +1,10 @@
-In order to do the binding, we used the Pyo3 crate.      
+# Python Binding
+We used the Pyo3 crate.
+In order to use it, you can follow its documentation [here](https://pyo3.rs/main/getting_started).
+
+A simplified way to use it is to install directly **maturin** with the following commands:
+
+
 
 pip install -r onnx-runtime-pyapp/requirements.txt
 
