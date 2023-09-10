@@ -17,7 +17,8 @@ Note that you need to have the onnxruntime official library installed on your PC
 ```
 pip install onnxruntime
 ```
-In addition, you should have been followed the instruction of our version of the library (click [here](../onnx-binding/README.md))
+In addition, you should have been followed the instruction of our version of the library (click [here](../onnx-binding/README.md)).
+
 Furthermore, the following libraries are needed:
 - [matplotlib.pyplot](https://matplotlib.org/3.5.3/api/_as_gen/matplotlib.pyplot.html)
 - [PIL](https://pillow.readthedocs.io/en/latest/reference/Image.html)
