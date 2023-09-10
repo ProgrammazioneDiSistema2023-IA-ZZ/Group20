@@ -1,0 +1,4 @@
+onnxruntime
+matplotlib
+Pillow
+numpy

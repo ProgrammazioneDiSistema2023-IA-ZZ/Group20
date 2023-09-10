@@ -8,21 +8,33 @@ Here is an example:
 As we can see from the picture above, on the left we have the Microsoft official prediction and its inference time and, on the right, our prediction and inference time.
 In addition, we can also find the network used to infer (**'resnet'** in the picture).
 
-
-# How to run the application
-
 ## Prerequisites
-Note that you need to have the onnxruntime official library installed on your PC. You can do this with the following command:
+You will need Python with version >= 3.7
 
+You should have been followed the instruction of our version of the library (click [here](../onnx-binding/README.md)).
+
+All the remaining required libraries are listed in the **requirements.txt** file. You can install them with the following command:
+```
+pip install -r requirements.txt
+```
+
+Or if you want to install by yourself, with the following instructions.
+You need to have the onnxruntime official library installed on your PC. You can do this with the following command:
 ```
 pip install onnxruntime
 ```
-In addition, you should have been followed the instruction of our version of the library (click [here](../onnx-binding/README.md)).
 
 Furthermore, the following libraries are needed:
 - [matplotlib.pyplot](https://matplotlib.org/3.5.3/api/_as_gen/matplotlib.pyplot.html)
 - [PIL](https://pillow.readthedocs.io/en/latest/reference/Image.html)
 - [numpy](https://numpy.org/)
+
+They can be installed with the following command:
+```
+pip install matplotlib pillow numpy
+```
+
+## How to run the application
 
 You have to be in the current directory (**onnx-runtime-pyapp**) and type the following command on the terminal:
 ```
