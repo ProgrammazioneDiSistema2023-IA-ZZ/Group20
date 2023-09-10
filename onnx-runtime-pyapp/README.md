@@ -40,4 +40,6 @@ This will run the application with the fireboat image and resnet.
 `python3 main.py fireboat` 
 
 This will run the application with the polaroid image and mobilenet.
-`python3 main.py polaroid mobilenet` 
+`python3 main.py polaroid mobilenet`
+
+- Note that you need to have the onnxruntime official library installed on your PC.
