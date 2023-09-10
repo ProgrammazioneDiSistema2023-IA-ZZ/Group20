@@ -10,6 +10,12 @@ In addition, we can also find the network used to infer (**'resnet'** in the pic
 
 
 ## How to run the application
+
+# Prerequisites
+Note that you need to have the onnxruntime official library installed on your PC. You can do this with the following command:
+`pip install onnxruntime`
+In addition, you should have been followed the instruction of our version of the library (click [here](../onnx-binding/README.md))
+
 You have to be in the current directory (**onnx-runtime-pyapp**) and type the following command on the terminal:
 `python3 main.py [image_name] [model_name]`
 
@@ -41,5 +47,3 @@ This will run the application with the fireboat image and resnet.
 
 This will run the application with the polaroid image and mobilenet.
 `python3 main.py polaroid mobilenet`
-
-- Note that you need to have the onnxruntime official library installed on your PC.
