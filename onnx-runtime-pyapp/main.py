@@ -58,7 +58,10 @@ def main():
     start_our = time.time()
     prediction_our = run_our(image_path, network_path)
     end_our = time.time()
-
+    print("Our prediction: ", prediction_our)
+    print("Microsoft prediction: ", prediction_micr)
+    print("Our inference time: ", end_our - start_our)
+    print("Microsoft inference time: ", end_micr - start_micr)
     print('Done')
 
     display_image(image, network_name, prediction_micr, prediction_our, end_micr - start_micr, end_our - start_our)
