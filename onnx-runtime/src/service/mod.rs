@@ -587,8 +587,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::graph::to_exec_graph;
     use crate::tensor::{Tensor, TensorData};
     use image::codecs::jpeg::JpegEncoder;
+    use petgraph::algo::toposort;
     use prost::Message;
 
     use crate::onnx_format::TensorProto;
@@ -759,5 +761,29 @@ mod tests {
                 image::ColorType::Rgb8,
             )
             .unwrap();
+    }
+
+    #[test]
+    #[ignore]
+    fn print_mobilenet_transversal_order() {
+        print_transversal_order("tests/models/mobilenetv2-7.onnx");
+    }
+
+    #[test]
+    #[ignore]
+    fn print_resnet_transversal_order() {
+        print_transversal_order("tests/models/resnet18-v2-7.onnx");
+    }
+
+    fn print_transversal_order(path: &str) {
+        let parsed_model = read_model_proto(path);
+        let graph = to_exec_graph(parsed_model).unwrap();
+        let ordered_operation_list = toposort(&graph, None).unwrap();
+        ordered_operation_list
+            .into_iter()
+            .enumerate()
+            .for_each(|(index, node)| {
+                println!("{}. {}", index, graph[node].name());
+            });
     }
 }
