@@ -21,5 +21,3 @@ The library can be installed with the simple
 pip install target/wheels/wheel_file.whl
 ```
 and it's now ready to be used.
-
-?? We already provide a built library with this source code.
