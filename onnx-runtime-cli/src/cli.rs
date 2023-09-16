@@ -12,7 +12,7 @@ pub struct Args {
     /// Multiple input are allowed, but the model must support multiple inputs, otherwise the operation will fail.
     ///
     /// Example: --input /path/to/image1.jpg --input /path/to/image2.jpg
-    #[arg(short, long)]
+    #[arg(short, long, required = true)]
     pub input: Vec<PathBuf>,
 
     /// Model name.
