@@ -106,10 +106,20 @@ fn serialize_simple_model() {
     let mut buffer = Vec::new();
     let serialization = example_model.encode(&mut buffer);
 
-    let mut serialized_file = File::create(tmp_path).unwrap();
+    let mut serialized_file = File::create(&tmp_path).unwrap();
     serialized_file.write_all(&buffer).unwrap();
 
-    assert!(serialization.is_ok())
+    assert!(serialization.is_ok());
+
+    // check if the file is equal to the original
+    let mut file = File::open(tmp_path).unwrap();
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).unwrap();
+
+    let parsed_model = ModelProto::decode(buffer.as_slice());
+
+    assert!(parsed_model.is_ok());
+    assert_eq!(parsed_model.unwrap(), example_model);
 }
 
 #[test]
