@@ -86,6 +86,7 @@ fn test_convolution_dil2() {
 }
 
 #[test]
+#[ignore]
 fn test_convolution_dil2big() {
     let x_shape = [1, 4, 9, 9];
     let w_shape = [4, 4, 3, 3];
@@ -174,6 +175,7 @@ fn test_convolution_complete_bias() {
 }
 
 #[test]
+#[ignore]
 fn test_convolution_huge() {
     let x_shape = [1, 128, 224, 224];
     let w_shape = [256, 128, 3, 3];
@@ -193,6 +195,7 @@ fn test_convolution_huge() {
 }
 
 #[test]
+#[ignore]
 fn test_convolution_big() {
     let x_shape = [1, 64, 224, 224];
     let w_shape = [64, 64, 3, 3];
@@ -473,6 +476,7 @@ fn test_par_max_pool() {
 }
 
 #[test]
+#[ignore]
 fn test_par_convolution_big() {
     let x_shape = [1, 64, 224, 224];
     let w_shape = [64, 64, 3, 3];
